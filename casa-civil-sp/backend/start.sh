@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Render entrega DATABASE_URL com prefixo "postgres://" mas o SQLAlchemy
+# precisa de "postgresql://". Esta linha corrige automaticamente.
+export DATABASE_URL="${DATABASE_URL/postgres:\/\//postgresql://}"
+
 echo "Waiting for PostgreSQL to be ready..."
 until python -c "
 import psycopg2, os, sys

@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://casacivil:casacivil123@postgres:5432/casacivil")
+_raw_url = os.environ.get("DATABASE_URL", "postgresql://casacivil:casacivil123@postgres:5432/casacivil")
+# Render entrega "postgres://..." mas SQLAlchemy exige "postgresql://"
+DATABASE_URL = _raw_url.replace("postgres://", "postgresql://", 1)
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
