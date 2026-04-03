@@ -7,6 +7,7 @@ import Secretariats from './pages/Secretariats'
 import Mayors from './pages/Mayors'
 import Programs from './pages/Programs'
 import Metas from './pages/Metas'
+import Objetivos from './pages/Objetivos'
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/prefeitos" element={<Mayors />} />
             <Route path="/programas" element={<Programs />} />
             <Route path="/metas" element={<Metas />} />
+            <Route path="/objetivos" element={<Objetivos />} />
           </Routes>
         </main>
       </div>

@@ -10,6 +10,16 @@ interface SecretariatItem {
   secretary_name: string | null
   party: string | null
   executives: string | null
+  meta_count: number
+  meta_by_status: Record<string, number>
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  'Em andamento': '#58a6ff',
+  'Em alerta': '#f0883e',
+  'Atrasado': '#f85149',
+  'Alcançado': '#3fb950',
+  'Evento a confirmar': '#a371f7',
 }
 
 function parseExecutives(raw: string | null): { name: string; party: string }[] {
@@ -142,6 +152,29 @@ export default function Secretariats() {
                           <PartyBadge party={exec.party} />
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Metas vinculadas */}
+                {sec.meta_count > 0 && (
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 12 }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                      METAS VINCULADAS ({sec.meta_count})
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {Object.entries(sec.meta_by_status).map(([status, count]) => {
+                        const color = STATUS_COLORS[status] || '#8b949e'
+                        return (
+                          <span key={status} style={{
+                            fontSize: 11, padding: '2px 8px', borderRadius: 10,
+                            background: `${color}20`, color,
+                            border: `1px solid ${color}44`, whiteSpace: 'nowrap',
+                          }}>
+                            {count} {status}
+                          </span>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

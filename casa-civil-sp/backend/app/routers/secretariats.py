@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List
 
 from app.database import get_db
-from app.models import Secretariat, BudgetItem, Program
+from app.models import Secretariat, BudgetItem, Program, Meta
 from app.schemas import SecretariatSimple, SecretariatDetail, ProgramOut
 
 router = APIRouter(prefix="/api/secretariats", tags=["secretariats"])
@@ -13,6 +13,22 @@ router = APIRouter(prefix="/api/secretariats", tags=["secretariats"])
 @router.get("", response_model=List[dict])
 def list_secretariats(db: Session = Depends(get_db)):
     secretariats = db.query(Secretariat).order_by(Secretariat.name).all()
+
+    # Batch-query meta counts (avoid N+1)
+    meta_counts = dict(
+        db.query(Meta.secretariat_id, func.count(Meta.id))
+        .group_by(Meta.secretariat_id)
+        .all()
+    )
+    meta_status_raw = (
+        db.query(Meta.secretariat_id, Meta.status, func.count(Meta.id))
+        .group_by(Meta.secretariat_id, Meta.status)
+        .all()
+    )
+    meta_by_status: dict = {}
+    for sec_id, status, count in meta_status_raw:
+        meta_by_status.setdefault(sec_id, {})[status] = count
+
     result = []
     for sec in secretariats:
         total = (
@@ -31,6 +47,8 @@ def list_secretariats(db: Session = Depends(get_db)):
                 "party": sec.party,
                 "executives": sec.executives,
                 "total_budget": total,
+                "meta_count": meta_counts.get(sec.id, 0),
+                "meta_by_status": meta_by_status.get(sec.id, {}),
             }
         )
     return result

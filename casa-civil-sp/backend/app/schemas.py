@@ -167,6 +167,50 @@ class MetasSummary(BaseModel):
     by_priority: dict
 
 
+class MetaCreate(BaseModel):
+    code: str
+    description: str
+    goal_group_id: int
+    secretariat_id: Optional[int] = None
+    priority: str = "B"
+    status: str = "Em andamento"
+    planned_value: Optional[float] = None
+    actual_value: Optional[float] = None
+    unit: Optional[str] = None
+    planned_date: Optional[str] = None
+    progress_pct: Optional[float] = None
+    flag_100_dias: bool = False
+    flag_estadao: bool = False
+    flag_folha: bool = False
+    flag_interior: bool = False
+    flag_capital: bool = False
+    flag_infraestrutura: bool = False
+
+
+class MetaUpdate(BaseModel):
+    description: Optional[str] = None
+    goal_group_id: Optional[int] = None
+    secretariat_id: Optional[int] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    planned_value: Optional[float] = None
+    actual_value: Optional[float] = None
+    unit: Optional[str] = None
+    planned_date: Optional[str] = None
+    progress_pct: Optional[float] = None
+    flag_100_dias: Optional[bool] = None
+    flag_estadao: Optional[bool] = None
+    flag_folha: Optional[bool] = None
+    flag_interior: Optional[bool] = None
+    flag_capital: Optional[bool] = None
+    flag_infraestrutura: Optional[bool] = None
+
+
+class GoalGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    pillar: Optional[str] = None
+
+
 # --- Dashboard ---
 class DashboardSummary(BaseModel):
     total_deputies: int
