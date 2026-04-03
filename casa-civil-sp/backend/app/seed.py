@@ -16,105 +16,123 @@ from app.models import Base, Deputy, Municipality, Mayor, Amendment, Secretariat
 
 # ---------------------------------------------------------------------------
 # Raw data — ALESP 35ª Legislatura (2023-2027)
-# Fonte oficial: TSE/SP — Resultado eleições estaduais 02/10/2022
-# Ordenado por votos (posição 1=mais votado, 94=menos votado)
+# Fonte: votos/ranking = TSE/SP (02/10/2022)
+#        matriculas/fotos/partidos = API ALESP legis-backend (estado em abr/2026)
+# Nota: partidos refletem o estado atual (pós migrações pós-eleição)
 # (name, party, votes_2022, registration, ranking, is_substitute, mandates, photo_url)
 # ---------------------------------------------------------------------------
 DEPUTIES_DATA = [
     ("Eduardo Suplicy", "PT", 807015, 300693, 1, False, 2, "/biografia/fotos/20230321-191506-id=987-GRD.jpg"),
     ("Carlos Giannazi", "PSOL", 276811, 300485, 2, False, 5, "/biografia/fotos/20230321-191048-id=148-GRD.jpg"),
-    ("Paula da Bancada Feminista", "PSOL", 259771, None, 3, False, 1, ""),
+    # fotos ALESP confirmadas via API legis-backend
+    ("Paula da Bancada Feminista", "PSOL", 259771, 300678, 3, False, 1, "/biografia/fotos/20230321-110413-id=1635-GRD.jpg"),
     ("Bruno Zambelli", "PL", 235305, 300660, 4, False, 1, "/biografia/fotos/20230511-162900-id=1644-GRD.jfif"),
     ("Major Mecca", "PL", 224462, 300633, 5, False, 2, "/biografia/fotos/20230322-111405-id=521-GRD.jpeg"),
-    ("Tomé Abduch", "PP", 221656, None, 6, False, 1, ""),
+    # Tomé Abduch: migrou PP→REPUBLICANOS após eleição
+    ("Tomé Abduch", "REPUBLICANOS", 221656, 300688, 6, False, 1, "/biografia/fotos/300688/dffe0759f4d72645639b028e1e5d4f636aeb1b809f61075ffd78ac589a7ac1a5.jpeg"),
     ("André do Prado", "PL", 216268, 300497, 7, False, 4, "/biografia/fotos/300497/2f42bf3f57458a3a37942214178dfc3d890395c8884ceb9979a0aea6f0a1850c.jpeg"),
-    ("Tenente Coimbra", "PL", 209705, None, 8, False, 1, ""),
+    ("Tenente Coimbra", "PL", 209705, 300646, 8, False, 2, "/biografia/fotos/20230807-151348-id=506-GRD.jpg"),
     ("Delegado Olim", "PP", 201348, 300543, 9, False, 3, "/biografia/fotos/20230321-191240-id=263-GRD.jpg"),
     ("Ana Carolina Serra", "CIDADANIA", 198698, 300657, 10, False, 1, "/biografia/fotos/20230315-163915-id=1622-GRD.jpeg"),
-    ("Milton Leite Filho", "UNIÃO", 198429, None, 11, False, 1, ""),
+    ("Milton Leite Filho", "UNIÃO", 198429, 300483, 11, False, 5, "/biografia/fotos/300483/2ccb4033061c8591a60f18d05a9a3d0c4a172a769cb92e198789e1f9dc05fbf4.jpeg"),
     ("Gil Diniz Bolsonaro", "PL", 196215, 300670, 12, False, 1, "/biografia/fotos/20230321-130525-id=1650-GRD.jpg"),
     ("Bruna Furlan", "PSDB", 195436, 300659, 13, False, 1, "/biografia/fotos/20230315-170525-id=1641-GRD.jpeg"),
     ("Conte Lopes", "PL", 192454, 300205, 14, False, 8, "/biografia/fotos/20230316-173502-id=180-GRD.jpg"),
-    ("Itamar Borges", "MDB", 183480, 300625, 15, False, 1, "/biografia/fotos/20191114-174133-id=529-GRD.jpg"),
-    # Nota: Itamar Borges assumiu Sec. Agricultura (Tarcísio) → suplente MDB assumiu
-    ("Marcos Damasio", "PL", 183219, 300638, 16, False, 2, "/biografia/fotos/20230323-095827-id=525-GRD.jpg"),
+    # Itamar Borges: 1º mandato (2023) — foto Nov/2019 era de outro deputado; exibe inicial
+    ("Itamar Borges", "MDB", 183480, 300625, 15, False, 1, ""),
+    # Marcos Damasio: matrícula corrigida (era 300638 que pertence a Paulo Fiorilo)
+    ("Marcos Damasio", "PL", 183219, 300552, 16, False, 3, "/biografia/fotos/20230321-192550-id=283-GRD.jpg"),
     ("Carlos Cezar", "PL", 180690, None, 17, False, 1, ""),
     ("Carla Morando", "PSDB", 177773, 300614, 18, False, 2, "/biografia/fotos/20230315-142108-id=540-GRD.jpeg"),
     ("Jorge Wilson Xerife do Consumidor", "REPUBLICANOS", 177614, 300627, 19, False, 2, "/biografia/fotos/300627/66d82bc48da44e2c5448551d036be98f99cfd27fb168bb98f10282156ae1b532.jpeg"),
     ("Ediane Maria", "PSOL", 175617, 300667, 20, False, 1, "/biografia/fotos/20230427-144843-id=1654-GRD.jpg"),
-    ("Marta Costa", "PSD", 170541, None, 21, False, 1, ""),
+    ("Marta Costa", "PSD", 170541, 300533, 21, False, 3, "/biografia/fotos/20191112-192923-id=284-GRD.png"),
     ("Emídio de Souza", "PT", 157834, 300395, 22, False, 5, "/biografia/fotos/20230315-145500-id=517-GRD.jpg"),
-    ("Professora Bebel", "PT", 155983, None, 23, False, 1, ""),
-    ("Guto Zacarias", "MISSÃO", 152481, 300624, 24, False, 2, "/biografia/fotos/20191112-191414-id=530-GRD.jpg"),
+    ("Professora Bebel", "PT", 155983, 300640, 23, False, 2, "/biografia/fotos/300640/5792a9cebeacc3b58d496afab642a82010316b056eed3885ae11642bd7932177.jpeg"),
+    # Guto Zacarias: foto Nov/2019 (id=530) confirmada errada pelo usuário; exibe inicial
+    ("Guto Zacarias", "MISSÃO", 152481, 300624, 24, False, 2, ""),
     ("Gerson Pessoa", "PODE", 143704, None, 25, False, 1, ""),
     ("Enio Tatto", "PT", 142785, 300440, 26, False, 6, "/biografia/fotos/20191112-192019-id=175-GRD.jpg"),
     ("Luiz Fernando T. Ferreira", "PT", 141017, 300545, 27, False, 3, "/biografia/fotos/300545/b25d811e25a8378431dcab7c7b0e4fdb0e0a4989c68c339ba40d03c99abc2019.jpeg"),
-    ("Rogério Nogueira", "PSDB", 139756, None, 28, False, 1, ""),
-    ("Oseias de Madureira", "REPUBLICANOS", 137205, None, 29, False, 1, ""),
-    ("Valeria Bolsonaro", "PL", 131557, None, 30, False, 1, ""),
+    # Rogério Nogueira: migrou PSDB→PSD após eleição
+    ("Rogério Nogueira", "PSD", 139756, 300407, 28, False, 6, "/biografia/fotos/20230714-155311-id=71-GRD.jpeg"),
+    # Oseias de Madureira: migrou REPUBLICANOS→PL após eleição
+    ("Oseias de Madureira", "PL", 137205, 300677, 29, False, 1, "/biografia/fotos/300677/d7b9c3790c2d86c4d225e4738159cf265eb2171b3a09716a53e1430af558316e.jpeg"),
+    ("Valeria Bolsonaro", "PL", 131557, 300649, 30, False, 2, "/biografia/fotos/20230321-201012-id=503-GRD.png"),
     ("Lucas Bove", "PL", 130451, 300676, 31, False, 1, "/biografia/fotos/20230315-170418-id=1640-GRD.jpg"),
     ("Edmir Chedid", "PSD", 129097, None, 32, False, 1, ""),
-    ("Thiago Auricchio", "PSD", 123483, 300508, 33, False, 3, "/biografia/fotos/20230315-171128-id=152-GRD.jpeg"),
+    # Thiago Auricchio: migrou PSD→PL; matrícula corrigida (era 300508)
+    ("Thiago Auricchio", "PL", 123483, 300648, 33, False, 2, "/biografia/fotos/20230329-180406-id=504-GRD.jpg"),
     ("Vinícius Camarinha", "PSB", 123316, 300655, 34, False, 2, "/biografia/fotos/20230315-171601-id=538-GRD.jpg"),
-    ("Maurici", "MDB", 121455, 300653, 35, False, 2, "/biografia/fotos/20230321-191839-id=529-GRD.jpg"),
-    ("Rafael Silva", "REPUBLICANOS", 118182, None, 36, False, 1, ""),
-    ("Paulo Fiorilo", "PT", 110251, 300471, 37, False, 7, "/biografia/fotos/20230315-161523-id=78-GRD.jpg"),
-    ("Reis", "PT", 108726, None, 38, False, 1, ""),
+    # Maurici: migrou MDB→PT; foto hash correta (era id=529 de Itamar Borges)
+    ("Maurici", "PT", 121455, 300653, 35, False, 2, "/biografia/fotos/300653/be0fae4ebcffd81468e3e343b158bf55482cc405ffaebbff06fbaf3433ffe098.jpeg"),
+    # Rafael Silva: migrou REPUBLICANOS→PSD; 8 mandatos
+    ("Rafael Silva", "PSD", 118182, 300344, 36, False, 8, "/biografia/fotos/300344/ac72cd78bf495cae533e7d143278c7085ea0cd64991bc9bb0117d7a60a85bcd9.jpeg"),
+    # Paulo Fiorilo: matrícula corrigida (era 300471); foto atualizada
+    ("Paulo Fiorilo", "PT", 110251, 300638, 37, False, 2, "/biografia/fotos/300638/8724f840684b834e46bb3550cdab9150d23eab9003b2bc6a65ba12320235895a.jpeg"),
+    ("Reis", "PT", 108726, 300681, 38, False, 1, "/biografia/fotos/20230321-195741-id=1632-GRD.png"),
     ("Márcia Lia", "PT", 108587, 300534, 39, False, 3, "/biografia/fotos/20230802-131346-id=281-GRD.jpg"),
-    ("Barba", "PT", 108071, None, 40, False, 1, ""),
-    ("Mônica do Movimento Pretas", "PSOL", 106781, None, 41, False, 1, ""),
+    ("Barba", "PT", 108071, 300584, 40, False, 3, "/biografia/fotos/300584/68f2d1366ca992ccd95727bfdd789c4b19fce86054251c888c7ca23342f3e448.jpeg"),
+    ("Mônica do Movimento Pretas", "PSOL", 106781, 300637, 41, False, 2, "/biografia/fotos/300637/33861a85d3642f45442e3d20ccb2f7b97634d8b79ca8995492740c8ee237e5f6.jpeg"),
     ("Carlão Pignatari", "PSD", 105245, 300499, 42, False, 4, "/biografia/fotos/300499/9717fd9e32cdb65c43f9558978d7a440bc407b053773de388c2f6f345989eba6.jpeg"),
     ("Caio França", "PSB", 105173, 300540, 43, False, 3, "/biografia/fotos/20230321-190741-id=267-GRD.jpg"),
-    # Nota: Caio França assumiu Sec. Habitação (Tarcísio) → suplente PSB assumiu
-    ("Sebastião Santos", "REPUBLICANOS", 104374, None, 44, False, 1, ""),
+    ("Sebastião Santos", "REPUBLICANOS", 104374, 300520, 44, False, 4, "/biografia/fotos/20230321-200423-id=95-GRD.png"),
     ("Altair Moraes", "REPUBLICANOS", 98515, 300609, 45, False, 2, "/biografia/fotos/20230315-141411-id=545-GRD.jpeg"),
-    ("Rafael Saraiva", "UNIÃO", 98070, 300651, 46, False, 1, "/biografia/fotos/20230315-163143-id=539-GRD.jpg"),
+    # Rafael Saraiva: matrícula corrigida (era 300651); foto atualizada
+    ("Rafael Saraiva", "UNIÃO", 98070, 300680, 46, False, 1, "/biografia/fotos/20230315-165421-id=1633-GRD.jpeg"),
     ("Gilmaci Santos", "REPUBLICANOS", 96361, 300671, 47, False, 1, "/biografia/fotos/20230315-170849-id=1649-GRD.jpeg"),
     ("Agente Federal Danilo Balas", "PL", 94552, 300607, 48, False, 2, "/biografia/fotos/300607/678129ff534ded49f5d96881ab26868b6170b40819639502898b48ee6030c787.jpeg"),
     ("Dirceu Dalben", "PSD", 93397, 300650, 49, False, 2, "/biografia/fotos/20230324-122116-id=561-GRD.png"),
     ("Rui Alves", "REPUBLICANOS", 91717, None, 50, False, 1, ""),
-    ("Thainara Faria", "PT", 91388, None, 51, False, 1, ""),
+    ("Thainara Faria", "PT", 91388, 300687, 51, False, 1, "/biografia/fotos/300687/54bcd424e77bc8078e63e9e27ace179e7b56ba04fcc11fd917b82cc2d26b26bf.jpeg"),
     ("Leonardo Siqueira", "NOVO", 90688, 300675, 52, False, 1, "/biografia/fotos/20230321-192007-id=1642-GRD.png"),
-    ("Ricardo Madalena", "PL", 90630, 300703, 53, False, 2, ""),
+    # Ricardo Madalena: matrícula corrigida (era 300703); foto atualizada
+    ("Ricardo Madalena", "PL", 90630, 300539, 53, False, 3, "/biografia/fotos/20230426-174701-id=288-GRD.jfif"),
     ("Leci Brandão", "PCdoB", 90496, 300513, 54, False, 4, "/biografia/fotos/20230718-161931-id=38-GRD.jpg"),
     ("Felipe Franco", "UNIÃO", 90440, 300622, 55, False, 1, "/biografia/fotos/20200819-200938-id=532-GRD.jpeg"),
     ("Analice Fernandes", "PSD", 90135, 300431, 56, False, 6, "/biografia/fotos/300431/69142319ee3fc052a205d625527ba5a8de9faa52aa1b643a8b3c0f41f886e1a7.jpeg"),
     ("Andréa Werner", "PSB", 88820, 300658, 57, False, 1, "/biografia/fotos/300658/ec8711d9e474223bd1fdb27dbaff6fb7cab4ecb03d9f34023706fb4734e2868d.jpeg"),
     ("Donato", "PT", 88022, 300664, 58, False, 1, "/biografia/fotos/20230321-130104-id=1655-GRD.png"),
     ("Barros Munhoz", "PSD", 86372, 300188, 59, False, 7, "/biografia/fotos/300188/c5f99a2bc1c4d2dfe5d72c8a24e6b9a242b03d5b61314284be308fee932813a6.jpeg"),
-    ("Paulo Mansur", "PL", 86201, None, 60, False, 1, ""),
-    ("Marina Helou", "REDE", 85517, None, 61, False, 1, ""),
+    ("Paulo Mansur", "PL", 86201, 300679, 60, False, 1, "/biografia/fotos/20230321-195508-id=1634-GRD.jpg"),
+    ("Marina Helou", "REDE", 85517, 300636, 61, False, 2, "/biografia/fotos/20230302-154543-id=518-GRD.jpg"),
     ("Marcio Nakashima", "PSD", 85195, 300635, 62, False, 2, "/biografia/fotos/300635/e9bff5d91c252b6c5055f1d7e8fc6742223d6af479becb1f88a008887e4df549.jpeg"),
     ("Capitão Telhada", "PP", 83438, 300661, 63, False, 1, "/biografia/fotos/20230315-173219-id=1648-GRD.png"),
     ("Edna Macedo", "REPUBLICANOS", 82932, 300318, 64, False, 4, "/biografia/fotos/20190315-152242-id=516-GRD.jpeg"),
-    ("Jorge Caruso", "MDB", 82209, 300626, 65, False, 1, "/biografia/fotos/20191112-192211-id=528-GRD.jpg"),
+    # Jorge Caruso: 1º mandato (2023) — foto Nov/2019 era de outro deputado; exibe inicial
+    ("Jorge Caruso", "MDB", 82209, 300626, 65, False, 1, ""),
     ("Léo Oliveira", "MDB", 82145, 300264, 66, False, 5, "/biografia/fotos/300264/4480e5e51c390cae6caaa26e6692a785b08df07ff7caaed48d4a351f44e60171.jpeg"),
     ("Dr. Jorge do Carmo", "PT", 82054, 300623, 67, False, 2, "/biografia/fotos/20190315-162558-id=531-GRD.jpg"),
-    ("Solange Freitas", "PSD", 81870, None, 68, False, 1, ""),
+    # Solange Freitas: migrou PSD→UNIÃO
+    ("Solange Freitas", "UNIÃO", 81870, 300686, 68, False, 1, "/biografia/fotos/20230619-135455-id=1626-GRD.png"),
     ("Daniel Soares", "UNIÃO", 81753, 300619, 69, False, 2, "/biografia/fotos/20230315-142647-id=535-GRD.jpg"),
     ("Dani Alonso", "PL", 80337, 300663, 70, False, 1, "/biografia/fotos/20230315-171350-id=1653-GRD.jpeg"),
     ("Ana Perugini", "PT", 79061, 300466, 71, False, 3, "/biografia/fotos/20230320-180813-id=81-GRD.jpg"),
-    ("Mauro Bragato", "PSDB", 78142, None, 72, False, 1, ""),
+    # Mauro Bragato: migrou PSDB→PSD; matrícula 300098 (parlamentar histórico, 11 mandatos)
+    ("Mauro Bragato", "PSD", 78142, 300098, 72, False, 11, "/biografia/fotos/20190315-144027-id=87-GRD.jpeg"),
     ("Helinho Zanatta", "MDB", 77550, None, 73, False, 1, ""),
-    ("Rafa Zimbaldi", "CIDADANIA", 76910, 300492, 74, False, 3, "/biografia/fotos/20230315-162055-id=135-GRD.jpg"),
-    ("Rogério Santos", "MDB", 76602, None, 75, False, 1, ""),
-    ("Rodrigo Moraes", "PL", 75094, None, 76, False, 1, ""),
-    ("Rômulo Fernandes", "PT", 75033, None, 77, False, 1, ""),
+    # Rafa Zimbaldi: migrou CIDADANIA→UNIÃO; matrícula corrigida (era 300492)
+    ("Rafa Zimbaldi", "UNIÃO", 76910, 300641, 74, False, 2, "/biografia/fotos/300641/a71cdcd1beaa217117340266ae9c98adb952dae5520a9bb94a63d01f000f4baf.jpeg"),
+    ("Rogério Santos", "MDB", 76602, 300683, 75, False, 1, "/biografia/fotos/20230315-165052-id=1630-GRD.jpg"),
+    ("Rodrigo Moraes", "PL", 75094, 300519, 76, False, 4, "/biografia/fotos/300519/4191e426b16ca3c439c3ee9fc27a611f644d778c805f21a9b741d657377076e9.jpeg"),
+    ("Rômulo Fernandes", "PT", 75033, 300684, 77, False, 1, "/biografia/fotos/300684/12597211b0cb0c6f4ab9d7d0e068a38610b210692edda9758cd9118b8d798073.jpeg"),
     ("Alex Madureira", "PL", 74340, 300608, 78, False, 2, "/biografia/fotos/20230302-145402-id=546-GRD.jpg"),
     ("Luiz Claudio Marcolino", "PT", 70487, 300514, 79, False, 2, "/biografia/fotos/20230529-131249-id=1637-GRD.jpeg"),
     ("Delegada Graciela", "PL", 68955, 300620, 80, False, 2, "/biografia/fotos/300620/b725bb9f2b1a490e2e6b490ae913be604ec542b36f1375ded387ba72d391e184.jpeg"),
     ("Letícia Aguiar", "PL", 68556, 300631, 81, False, 2, "/biografia/fotos/20230315-150330-id=523-GRD.jpg"),
-    ("Maria Lucia Amary", "PSDB", 66956, None, 82, False, 1, ""),
+    # Maria Lucia Amary: migrou PSDB→PSD; matrícula 300415 (6 mandatos)
+    ("Maria Lucia Amary", "PSD", 66956, 300415, 82, False, 6, "/biografia/fotos/300415/3f7d0ec72a40338819e60ab5285a10f7ba1940272878a742e14054cf0e420866.jpeg"),
     ("Fabiana Bolsonaro", "PL", 65497, 300668, 83, False, 1, ""),
     ("Beth Sahão", "PT", 65407, 300435, 84, False, 6, "/biografia/fotos/20230317-110718-id=31-GRD.jpeg"),
-    ("Ricardo França", "PODE", 64175, None, 85, False, 1, ""),
-    ("Paulo Corrêa Jr", "REPUBLICANOS", 62239, None, 86, False, 1, ""),
+    ("Ricardo França", "PODE", 64175, 300682, 85, False, 1, "/biografia/fotos/300682/6e3a648bae583eebc11b13e0955f7105566a8ca3291620dc85be8ce114583717.jpeg"),
+    ("Paulo Corrêa Jr", "REPUBLICANOS", 62239, 300536, 86, False, 3, "/biografia/fotos/300536/57790d967b293e30c5be2f49ba2949baf359017c07a783f12a05c1ea24cd21c3.jpeg"),
     ("Simão Pedro", "PT", 59785, 300511, 87, False, 4, "/biografia/fotos/20230315-165428-id=148-GRD.jpg"),
     ("Clarice Ganem", "PODE", 59342, 300662, 88, False, 1, "/biografia/fotos/300662/d9362d62e29435984b085411f9c8dd4f482f95db5b129c476778773a9d4a0cd8.jpeg"),
     ("Atila Jacomussi", "UNIÃO", 58707, 300537, 89, False, 2, "/biografia/fotos/20230315-170109-id=265-GRD.jpg"),
-    ("Vitão do Cachorrão", "REPUBLICANOS", 56729, None, 90, False, 1, ""),
+    # Vitão do Cachorrão: migrou REPUBLICANOS→PODE
+    ("Vitão do Cachorrão", "PODE", 56729, 300689, 90, False, 1, "/biografia/fotos/300689/73aa4cf331fcbaa58dd1540efae714f861c56f5708979f153f2ad4ec32d86d7b.jpeg"),
     ("Dr. Eduardo Nóbrega", "PODE", 53607, 300665, 91, False, 1, "/biografia/fotos/20230315-171633-id=1657-GRD.jpg"),
-    ("Dr. Valdomiro Lopes", "PSB", 50824, None, 92, False, 1, ""),
+    ("Dr. Valdomiro Lopes", "PSB", 50824, 300396, 92, False, 4, "/biografia/fotos/20230315-164216-id=1623-GRD.jpeg"),
     ("Dr. Elton", "UNIÃO", 46042, 300666, 93, False, 1, ""),
     ("Guilherme Cortez", "PSOL", 45094, 300672, 94, False, 1, "/biografia/fotos/20230321-130905-id=1646-GRD.jpg"),
 ]
