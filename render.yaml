@@ -31,7 +31,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: cig-backend
-          property: url
+        value: https://cig-backend.onrender.com
