@@ -1,112 +1,53 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend,
-} from 'recharts'
-import { fmt_currency } from '../utils'
+import { partyColor } from '../utils'
 
 interface SecretariatItem {
   id: number
   name: string
   acronym: string
+  emoji: string | null
   secretary_name: string | null
-  total_budget: number
+  party: string | null
+  executives: string | null
 }
 
-interface BudgetItem {
-  id: number
-  year: number
-  category: string
-  value: number
-  description: string | null
+function parseExecutives(raw: string | null): { name: string; party: string }[] {
+  if (!raw) return []
+  return raw.split(';').map(entry => {
+    const [name, party] = entry.split('|')
+    return { name: name?.trim() || '', party: party?.trim() || 'sem partido' }
+  }).filter(e => e.name)
 }
 
-interface SecretariatDetail {
-  id: number
-  name: string
-  acronym: string
-  secretary_name: string | null
-  budget_items: BudgetItem[]
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  dotacao: '#58a6ff',
-  empenhado: '#3fb950',
-  liquidado: '#d29922',
-  pago: '#f85149',
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-  dotacao: 'Dotação',
-  empenhado: 'Empenhado',
-  liquidado: 'Liquidado',
-  pago: 'Pago',
-}
-
-function buildChartData(items: BudgetItem[]) {
-  const byYear: Record<number, Record<string, number>> = {}
-  for (const item of items) {
-    if (!byYear[item.year]) byYear[item.year] = {}
-    byYear[item.year][item.category] = item.value
+function PartyBadge({ party }: { party: string | null }) {
+  if (!party || party === 'sem partido') {
+    return (
+      <span style={{
+        display: 'inline-block', padding: '2px 8px', borderRadius: 12,
+        fontSize: 10, fontWeight: 600, background: 'rgba(139,148,158,0.15)',
+        color: '#8b949e', letterSpacing: '0.3px',
+      }}>
+        sem partido
+      </span>
+    )
   }
-  return Object.entries(byYear)
-    .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([year, cats]) => ({ year, ...cats }))
-}
-
-function SecretariatModal({ sec, onClose }: { sec: SecretariatDetail; onClose: () => void }) {
-  const chartData = buildChartData(sec.budget_items)
-
+  const color = partyColor(party)
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: 780 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
-              {sec.acronym}
-            </div>
-            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>{sec.name}</div>
-            {sec.secretary_name && (
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>Secretário(a): {sec.secretary_name}</div>
-            )}
-          </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-
-        <div className="chart-card-title" style={{ marginBottom: 16 }}>Execução Orçamentária por Ano</div>
-
-        {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData} margin={{ left: 10, right: 10, top: 0, bottom: 0 }}>
-              <XAxis dataKey="year" tick={{ fill: '#8b949e', fontSize: 12 }} />
-              <YAxis hide />
-              <Tooltip
-                formatter={(value: number, name: string) => [fmt_currency(value), CATEGORY_LABELS[name] ?? name]}
-                contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 6, fontSize: 12 }}
-              />
-              <Legend
-                formatter={value => <span style={{ color: '#8b949e', fontSize: 12 }}>{CATEGORY_LABELS[value] ?? value}</span>}
-              />
-              {Object.keys(CATEGORY_COLORS).map(cat => (
-                <Bar key={cat} dataKey={cat} fill={CATEGORY_COLORS[cat]} radius={[3, 3, 0, 0]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-state-icon">📊</div>
-            <div>Sem dados orçamentários disponíveis.</div>
-          </div>
-        )}
-      </div>
-    </div>
+    <span style={{
+      display: 'inline-block', padding: '2px 8px', borderRadius: 12,
+      fontSize: 10, fontWeight: 600, letterSpacing: '0.3px',
+      background: `${color}22`, color, border: `1px solid ${color}44`,
+    }}>
+      {party}
+    </span>
   )
 }
 
 export default function Secretariats() {
   const [secretariats, setSecretariats] = useState<SecretariatItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<SecretariatDetail | null>(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     axios.get<SecretariatItem[]>('/api/secretariats')
@@ -114,69 +55,107 @@ export default function Secretariats() {
       .finally(() => setLoading(false))
   }, [])
 
-  const handleSelect = async (id: number) => {
-    const r = await axios.get<SecretariatDetail>(`/api/secretariats/${id}`)
-    setSelected(r.data)
-  }
-
-  const sorted = [...secretariats].sort((a, b) => b.total_budget - a.total_budget)
+  const filtered = secretariats.filter(s =>
+    !search ||
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    (s.secretary_name || '').toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
     <div>
       <div className="page-title">Secretarias de Estado</div>
-      <div className="page-subtitle">Pastas do governo paulista — execução orçamentária</div>
+      <div className="page-subtitle">
+        Governo Tarcísio de Freitas · {secretariats.length} secretarias
+      </div>
+
+      {/* Search */}
+      <div style={{ marginBottom: 20 }}>
+        <input
+          className="search-input"
+          style={{ width: '100%', maxWidth: 400 }}
+          placeholder="Buscar secretaria ou secretário..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
 
       {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+        <div className="sec-grid">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="loading-skeleton" style={{ height: 110 }} />
+            <div key={i} className="loading-skeleton" style={{ height: 200 }} />
           ))}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-          {sorted.map((sec, idx) => (
-            <div
-              key={sec.id}
-              className="card"
-              onClick={() => handleSelect(sec.id)}
-              style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-            >
-              {/* Rank */}
-              <div style={{
-                position: 'absolute', top: 12, right: 12,
-                fontSize: 11, color: 'var(--muted)',
-                background: 'var(--bg3)', padding: '2px 6px', borderRadius: 10,
-              }}>
-                #{idx + 1}
-              </div>
-
-              <div style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>
-                {sec.acronym}
-              </div>
-              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, paddingRight: 36, lineHeight: 1.3 }}>
-                {sec.name}
-              </div>
-              {sec.secretary_name && (
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
-                  {sec.secretary_name}
+        <div className="sec-grid">
+          {filtered.map(sec => {
+            const executives = parseExecutives(sec.executives)
+            return (
+              <div key={sec.id} className="card sec-card">
+                {/* Emoji + acronym */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{
+                    fontSize: 36, lineHeight: 1,
+                    width: 52, height: 52,
+                    background: 'var(--bg3)', borderRadius: 12,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {sec.emoji || '🏛️'}
+                  </div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, letterSpacing: '1px',
+                    color: 'var(--accent)', background: 'rgba(88,166,255,0.1)',
+                    padding: '3px 8px', borderRadius: 8,
+                  }}>
+                    {sec.acronym}
+                  </span>
                 </div>
-              )}
 
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>Dotação Total</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)' }}>
-                  {fmt_currency(sec.total_budget)}
+                {/* Name */}
+                <div style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, marginBottom: 14, color: 'var(--text)' }}>
+                  {sec.name}
                 </div>
+
+                {/* Secretary */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                    SECRETÁRIO(A)
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+                    {sec.secretary_name || '—'}
+                  </div>
+                  <PartyBadge party={sec.party} />
+                </div>
+
+                {/* Executives */}
+                {executives.length > 0 && (
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                      SECRETÁRIOS(AS) EXECUTIVOS(AS)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {executives.map((exec, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                          <div style={{ fontSize: 12, color: 'var(--text)', flex: 1, minWidth: 0 }}>
+                            {exec.name}
+                          </div>
+                          <PartyBadge party={exec.party} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
-      {selected && (
-        <SecretariatModal sec={selected} onClose={() => setSelected(null)} />
+      {!loading && filtered.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-icon">🔍</div>
+          <div>Nenhuma secretaria encontrada.</div>
+        </div>
       )}
     </div>
   )

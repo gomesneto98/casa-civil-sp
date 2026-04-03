@@ -6,7 +6,13 @@ export default defineConfig({
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 3000,
     proxy: {
-      '/api': 'http://localhost:8000'
+      '/api': {
+        target: process.env.VITE_API_TARGET || 'http://localhost:8000',
+        changeOrigin: true,
+      }
     }
+  },
+  define: {
+    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || ''),
   }
 })

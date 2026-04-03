@@ -26,7 +26,10 @@ def list_secretariats(db: Session = Depends(get_db)):
                 "id": sec.id,
                 "name": sec.name,
                 "acronym": sec.acronym,
+                "emoji": sec.emoji,
                 "secretary_name": sec.secretary_name,
+                "party": sec.party,
+                "executives": sec.executives,
                 "total_budget": total,
             }
         )

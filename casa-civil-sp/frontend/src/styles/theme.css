@@ -319,8 +319,144 @@ input, select, textarea {
   .page-content {
     margin-left: 0;
     padding: 16px;
+    padding-top: 64px;
   }
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* =====================================================
+   Sidebar
+   ===================================================== */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  transition: transform 0.25s ease;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 199;
+}
+
+/* Mobile top bar */
+.mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  z-index: 150;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.hamburger-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 20px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.hamburger-btn:hover {
+  background: var(--bg3);
+}
+
+/* Secretariats grid */
+.sec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.sec-card {
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.sec-card:hover {
+  border-color: var(--accent);
+}
+
+/* =====================================================
+   Mobile: < 768px
+   ===================================================== */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .mobile-topbar {
+    display: flex;
+  }
+
+  .page-content {
+    padding-top: 68px;
+  }
+
+  .sec-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-grid,
+  .charts-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .modal-box {
+    padding: 16px;
+    max-height: 90vh;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 10px 10px;
+    font-size: 12px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+}
+
+/* =====================================================
+   Desktop: hide mobile elements
+   ===================================================== */
+@media (min-width: 769px) {
+  .mobile-topbar {
+    display: none;
+  }
+
+  .sidebar {
+    transform: translateX(0) !important;
   }
 }

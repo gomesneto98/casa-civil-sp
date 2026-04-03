@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
@@ -7,11 +8,31 @@ import Mayors from './pages/Mayors'
 import Programs from './pages/Programs'
 
 export default function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   return (
     <BrowserRouter>
       <div className="main-layout">
-        <Sidebar />
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+        )}
+
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
         <main className="page-content">
+          {/* Mobile top bar */}
+          <div className="mobile-topbar">
+            <button
+              className="hamburger-btn"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Abrir menu"
+            >
+              ☰
+            </button>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>CIG — Centro Integrado de Governo</span>
+          </div>
+
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/alesp" element={<Deputies />} />

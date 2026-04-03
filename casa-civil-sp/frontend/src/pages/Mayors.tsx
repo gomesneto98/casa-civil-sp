@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import axios from 'axios'
-import { fmt_currency, partyColor } from '../utils'
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
+import type { Map as LeafletMap } from 'leaflet'
+import { partyColor } from '../utils'
 
 interface Mayor {
   id: number
@@ -15,17 +17,9 @@ interface Municipality {
   name: string
   region: string
   population: number | null
+  lat: number | null
+  lng: number | null
   mayor: Mayor | null
-}
-
-interface Amendment {
-  id: number
-  year: number
-  value: number
-  description: string
-  status: string
-  deputy: { id: number; name: string; party: string }
-  municipality: { id: number; name: string; region: string }
 }
 
 const REGION_COLORS: Record<string, string> = {
@@ -35,127 +29,30 @@ const REGION_COLORS: Record<string, string> = {
   'Vale do Paraíba': '#f85149',
 }
 
-function MunicipalityModal({ mun, onClose }: { mun: Municipality; onClose: () => void }) {
-  const [amendments, setAmendments] = useState<Amendment[]>([])
-  const [loading, setLoading] = useState(true)
+const REGIONS = ['Todos', 'Grande SP', 'Interior', 'Litoral', 'Vale do Paraíba']
 
+function FlyTo({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap()
   useEffect(() => {
-    axios.get<Amendment[]>(`/api/municipalities/${mun.id}/amendments`)
-      .then(r => setAmendments(r.data))
-      .finally(() => setLoading(false))
-  }, [mun.id])
+    map.flyTo([lat, lng], 10, { duration: 1 })
+  }, [lat, lng, map])
+  return null
+}
 
-  const totalAmendments = amendments.reduce((s, a) => s + a.value, 0)
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: 720 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>{mun.name}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span className="badge" style={{
-                background: `${REGION_COLORS[mun.region] ?? '#8b949e'}22`,
-                color: REGION_COLORS[mun.region] ?? '#8b949e',
-              }}>
-                {mun.region}
-              </span>
-              {mun.population && (
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  {mun.population.toLocaleString('pt-BR')} hab.
-                </span>
-              )}
-            </div>
-          </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-
-        {/* Mayor info */}
-        {mun.mayor && (
-          <div style={{
-            background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
-            marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Prefeito(a)</div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{mun.mayor.name}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span className="badge" style={{
-                background: `${partyColor(mun.mayor.party)}22`,
-                color: partyColor(mun.mayor.party),
-              }}>
-                {mun.mayor.party}
-              </span>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                {mun.mayor.term_start}–{mun.mayor.term_end}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Amendments */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Emendas Recebidas ({amendments.length})
-          </div>
-          {totalAmendments > 0 && (
-            <div style={{ fontSize: 13, color: 'var(--green)', fontWeight: 600 }}>
-              {fmt_currency(totalAmendments)}
-            </div>
-          )}
-        </div>
-
-        {loading ? (
-          <div style={{ color: 'var(--muted)', fontSize: 13 }}>Carregando...</div>
-        ) : amendments.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">📋</div>
-            <div>Nenhuma emenda registrada para este município.</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {amendments.map(am => (
-              <div key={am.id} style={{
-                background: 'var(--bg3)', borderRadius: 6, padding: '10px 12px',
-                border: '1px solid var(--border)',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-                  <div style={{ fontWeight: 500, fontSize: 13 }}>{am.description}</div>
-                  <div style={{ fontWeight: 600, color: 'var(--green)', fontSize: 13, flexShrink: 0 }}>
-                    {fmt_currency(am.value)}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    Dep. {am.deputy.name}
-                    <span className="badge" style={{
-                      marginLeft: 6,
-                      background: `${partyColor(am.deputy.party)}22`,
-                      color: partyColor(am.deputy.party),
-                    }}>
-                      {am.deputy.party}
-                    </span>
-                    <span style={{ marginLeft: 8 }}>· {am.year}</span>
-                  </div>
-                  <span className={`badge badge-${am.status}`}>{am.status}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
+function formatPop(n: number | null) {
+  if (!n) return '—'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M hab.`
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k hab.`
+  return `${n} hab.`
 }
 
 export default function Mayors() {
   const [municipalities, setMunicipalities] = useState<Municipality[]>([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<Municipality | null>(null)
   const [regionFilter, setRegionFilter] = useState('Todos')
-
-  const regions = ['Todos', 'Grande SP', 'Interior', 'Litoral', 'Vale do Paraíba']
+  const [search, setSearch] = useState('')
+  const [focusCity, setFocusCity] = useState<{ lat: number; lng: number } | null>(null)
+  const [highlightId, setHighlightId] = useState<number | null>(null)
 
   useEffect(() => {
     axios.get<Municipality[]>('/api/municipalities')
@@ -163,90 +60,243 @@ export default function Mayors() {
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered = regionFilter === 'Todos'
-    ? municipalities
-    : municipalities.filter(m => m.region === regionFilter)
+  const filtered = useMemo(() => {
+    let list = municipalities
+    if (regionFilter !== 'Todos') list = list.filter(m => m.region === regionFilter)
+    if (search) list = list.filter(m =>
+      m.name.toLowerCase().includes(search.toLowerCase()) ||
+      (m.mayor?.name || '').toLowerCase().includes(search.toLowerCase())
+    )
+    return list
+  }, [municipalities, regionFilter, search])
+
+  const handleSelect = (mun: Municipality) => {
+    if (mun.lat && mun.lng) {
+      setFocusCity({ lat: mun.lat, lng: mun.lng })
+      setHighlightId(mun.id)
+    }
+  }
+
+  const totalPop = municipalities.reduce((s, m) => s + (m.population || 0), 0)
+
+  // Stats by region
+  const regionStats = useMemo(() => {
+    const stats: Record<string, number> = {}
+    for (const m of municipalities) {
+      stats[m.region] = (stats[m.region] || 0) + 1
+    }
+    return stats
+  }, [municipalities])
 
   return (
     <div>
       <div className="page-title">Prefeitos e Municípios</div>
-      <div className="page-subtitle">Visão orçamentária por município</div>
-
-      {/* Region filters */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-        {regions.map(r => (
-          <button
-            key={r}
-            className={`filter-btn ${regionFilter === r ? 'active' : ''}`}
-            onClick={() => setRegionFilter(r)}
-            style={regionFilter === r && r !== 'Todos' ? {
-              background: `${REGION_COLORS[r]}22`,
-              borderColor: REGION_COLORS[r],
-              color: REGION_COLORS[r],
-            } : {}}
-          >
-            {r}
-          </button>
-        ))}
+      <div className="page-subtitle">
+        30 maiores municípios · Eleições 2024 · Mandato 2025–2028
       </div>
 
+      {/* KPIs */}
+      {!loading && (
+        <div className="kpi-grid" style={{ marginBottom: 20 }}>
+          <div className="card">
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>MUNICÍPIOS</div>
+            <div style={{ fontSize: 24, fontWeight: 700 }}>{municipalities.length}</div>
+          </div>
+          <div className="card">
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>POPULAÇÃO TOTAL</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)' }}>
+              {(totalPop / 1_000_000).toFixed(1)}M
+            </div>
+          </div>
+          {Object.entries(regionStats).map(([region, count]) => (
+            <div key={region} className="card">
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>{region.toUpperCase()}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: REGION_COLORS[region] }}>{count}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Map */}
+      {!loading && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 20, borderRadius: 8 }}>
+          <div style={{ height: 400, position: 'relative' }}>
+            <MapContainer
+              center={[-22.5, -48.5]}
+              zoom={6}
+              style={{ height: '100%', width: '100%', background: '#161b22' }}
+              zoomControl={true}
+            >
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+              />
+              {focusCity && <FlyTo lat={focusCity.lat} lng={focusCity.lng} />}
+              {municipalities.filter(m => m.lat && m.lng).map(mun => {
+                const color = REGION_COLORS[mun.region] ?? '#8b949e'
+                const isHighlight = mun.id === highlightId
+                const radius = mun.population
+                  ? Math.max(6, Math.min(22, Math.sqrt(mun.population / 50000) * 4))
+                  : 7
+
+                return (
+                  <CircleMarker
+                    key={mun.id}
+                    center={[mun.lat!, mun.lng!]}
+                    radius={isHighlight ? radius + 4 : radius}
+                    pathOptions={{
+                      fillColor: isHighlight ? '#fff' : color,
+                      color: isHighlight ? '#fff' : color,
+                      fillOpacity: isHighlight ? 0.95 : 0.75,
+                      weight: isHighlight ? 3 : 1.5,
+                    }}
+                    eventHandlers={{ click: () => setHighlightId(mun.id) }}
+                  >
+                    <Popup>
+                      <div style={{ minWidth: 180 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{mun.name}</div>
+                        <div style={{
+                          display: 'inline-block', padding: '2px 8px', borderRadius: 10,
+                          fontSize: 10, fontWeight: 600, marginBottom: 8,
+                          background: `${color}33`, color,
+                        }}>
+                          {mun.region}
+                        </div>
+                        {mun.population && (
+                          <div style={{ fontSize: 12, marginBottom: 6 }}>
+                            👥 {mun.population.toLocaleString('pt-BR')} hab.
+                          </div>
+                        )}
+                        {mun.mayor && (
+                          <>
+                            <div style={{ fontSize: 12, fontWeight: 600 }}>
+                              🏛 {mun.mayor.name}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                              {mun.mayor.party} · {mun.mayor.term_start}–{mun.mayor.term_end}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                )
+              })}
+            </MapContainer>
+          </div>
+          <div style={{
+            padding: '10px 16px', background: 'var(--bg2)',
+            display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 11, color: 'var(--muted)',
+          }}>
+            <span style={{ fontWeight: 600 }}>Legenda:</span>
+            {Object.entries(REGION_COLORS).map(([r, c]) => (
+              <span key={r} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: c, display: 'inline-block' }} />
+                {r}
+              </span>
+            ))}
+            <span style={{ marginLeft: 'auto' }}>Clique nos círculos para ver detalhes · Tamanho = população</span>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+        <input
+          className="search-input"
+          placeholder="Buscar cidade ou prefeito..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex: '1', minWidth: 200, maxWidth: 320 }}
+        />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {REGIONS.map(r => (
+            <button
+              key={r}
+              className={`filter-btn ${regionFilter === r ? 'active' : ''}`}
+              onClick={() => setRegionFilter(r)}
+              style={regionFilter === r && r !== 'Todos' ? {
+                background: `${REGION_COLORS[r]}22`,
+                borderColor: REGION_COLORS[r],
+                color: REGION_COLORS[r],
+              } : {}}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
       {loading ? (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="card" style={{ padding: 0 }}>
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="loading-skeleton" style={{ height: 52, margin: '2px 0' }} />
           ))}
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Município</th>
-                <th>Região</th>
-                <th>População</th>
-                <th>Prefeito(a)</th>
-                <th>Partido</th>
-                <th>Mandato</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(m => (
-                <tr key={m.id} onClick={() => setSelected(m)}>
-                  <td style={{ fontWeight: 500 }}>{m.name}</td>
-                  <td>
-                    <span className="badge" style={{
-                      background: `${REGION_COLORS[m.region] ?? '#8b949e'}22`,
-                      color: REGION_COLORS[m.region] ?? '#8b949e',
-                    }}>
-                      {m.region}
-                    </span>
-                  </td>
-                  <td style={{ color: 'var(--muted)' }}>
-                    {m.population ? m.population.toLocaleString('pt-BR') : '—'}
-                  </td>
-                  <td>{m.mayor?.name ?? '—'}</td>
-                  <td>
-                    {m.mayor && (
-                      <span className="badge" style={{
-                        background: `${partyColor(m.mayor.party)}22`,
-                        color: partyColor(m.mayor.party),
-                      }}>
-                        {m.mayor.party}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ color: 'var(--muted)', fontSize: 12 }}>
-                    {m.mayor ? `${m.mayor.term_start}–${m.mayor.term_end}` : '—'}
-                  </td>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Município</th>
+                  <th>Região</th>
+                  <th>Prefeito(a)</th>
+                  <th>Partido</th>
+                  <th style={{ textAlign: 'right' }}>População</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {filtered.map(mun => (
+                  <tr
+                    key={mun.id}
+                    onClick={() => handleSelect(mun)}
+                    style={{ background: mun.id === highlightId ? 'rgba(88,166,255,0.07)' : undefined }}
+                  >
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span
+                          style={{
+                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                            background: REGION_COLORS[mun.region] ?? '#8b949e',
+                          }}
+                        />
+                        <span style={{ fontWeight: 500 }}>{mun.name}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, color: REGION_COLORS[mun.region] ?? 'var(--muted)' }}>
+                        {mun.region}
+                      </span>
+                    </td>
+                    <td>{mun.mayor?.name || '—'}</td>
+                    <td>
+                      {mun.mayor && (
+                        <span className="badge" style={{
+                          background: `${partyColor(mun.mayor.party)}22`,
+                          color: partyColor(mun.mayor.party),
+                        }}>
+                          {mun.mayor.party}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right', fontSize: 12 }}>
+                      {formatPop(mun.population)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {selected && (
-        <MunicipalityModal mun={selected} onClose={() => setSelected(null)} />
+          {filtered.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-state-icon">🔍</div>
+              <div>Nenhum município encontrado.</div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

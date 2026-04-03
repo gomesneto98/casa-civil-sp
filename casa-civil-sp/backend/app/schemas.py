@@ -67,6 +67,8 @@ class MayorSimple(BaseModel):
 
 class MunicipalityDetail(MunicipalitySimple):
     population: Optional[int]
+    lat: Optional[float]
+    lng: Optional[float]
     mayor: Optional[MayorSimple]
 
     class Config:
@@ -78,7 +80,10 @@ class SecretariatSimple(BaseModel):
     id: int
     name: str
     acronym: str
+    emoji: Optional[str]
     secretary_name: Optional[str]
+    party: Optional[str]
+    executives: Optional[str]
 
     class Config:
         from_attributes = True

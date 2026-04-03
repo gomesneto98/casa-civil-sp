@@ -1,22 +1,24 @@
 """
-Seed script for Casa Civil SP database.
-Idempotent: checks if data exists before inserting.
+Seed script — CIG: Centro Integrado de Governo SP.
+Dados atualizados: deputados ALESP 35ª Legislatura, eleições municipais 2024,
+secretarias de Estado do Governo Tarcísio de Freitas (2023-2026).
+Idempotente: verifica existência antes de inserir.
 """
 import os
 import sys
 import random
 from sqlalchemy.orm import Session
 
-# Ensure app is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import engine, SessionLocal
 from app.models import Base, Deputy, Municipality, Mayor, Amendment, Secretariat, BudgetItem, Program
 
 # ---------------------------------------------------------------------------
-# Raw data
+# Raw data — ALESP 35ª Legislatura (2023-2027)
 # ---------------------------------------------------------------------------
 
+# (name, party, votes_2022, registration, ranking, is_substitute, mandates, photo_url)
 DEPUTIES_DATA = [
     ("Agente Federal Danilo Balas", "PL", 94552, 300607, 48, False, 2, "/biografia/fotos/300607/678129ff534ded49f5d96881ab26868b6170b40819639502898b48ee6030c787.jpeg"),
     ("Alex Madureira", "PL", 74340, 300608, 77, False, 2, "/biografia/fotos/20230302-145402-id=546-GRD.jpg"),
@@ -90,12 +92,11 @@ DEPUTIES_DATA = [
     ("Paulo Fiorilo", "PT", 134441, 300471, 30, False, 7, "/biografia/fotos/20230315-161523-id=78-GRD.jpg"),
     ("Paulo Rodrigues", "REPUBLICANOS", 77524, 300648, 72, False, 1, "/biografia/fotos/20230321-132338-id=1643-GRD.jpeg"),
     ("Pedro Ichihara", "PODE", 115688, 300646, 36, False, 1, "/biografia/fotos/20230802-133053-id=568-GRD.jpg"),
-    ("Projeto de Lei", "PL", 65392, 300699, 83, False, 1, ""),
     ("Rafa Zimbaldi", "CIDADANIA", 314213, 300492, 3, False, 3, "/biografia/fotos/20230315-162055-id=135-GRD.jpg"),
     ("Rafael Saraiva", "UNIÃO", 76312, 300651, 74, False, 1, "/biografia/fotos/20230315-163143-id=539-GRD.jpg"),
-    ("Rednex Caires", "AVANTE", 63498, 300700, 86, False, 1, "/biografia/fotos/300700/ab7e2f9a5b7a4df5b49e8c3fd6a45d9a3e6f8b0d1a4e7c9b2d3e5f6a7b8c9d0.jpeg"),
+    ("Rednex Caires", "AVANTE", 63498, 300700, 86, False, 1, ""),
     ("Reinaldo Alguz", "AVANTE", 56983, 300701, 94, False, 1, ""),
-    ("Ricardo Madalena", "PL", 152313, 300703, 23, False, 2, "/biografia/fotos/300703/1a2b3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890.jpeg"),
+    ("Ricardo Madalena", "PL", 152313, 300703, 23, False, 2, ""),
     ("Roberto Engler", "PL", 96403, 300647, 46, False, 2, "/biografia/fotos/20230315-165110-id=547-GRD.jpeg"),
     ("Rogério Santos", "PSD", 0, 300702, 0, True, 1, ""),
     ("Rubão", "PT", 100459, 300383, 44, False, 6, "/biografia/fotos/20230315-165740-id=513-GRD.jpg"),
@@ -112,90 +113,207 @@ DEPUTIES_DATA = [
     ("William Siqueira", "PL", 73682, 300706, 78, False, 1, ""),
 ]
 
-MUNICIPALITIES_DATA = [
-    # (name, region, population)
-    ("São Paulo", "Grande SP", 12396372),
-    ("Campinas", "Interior", 1223237),
-    ("Santos", "Litoral", 433311),
-    ("Ribeirão Preto", "Interior", 720294),
-    ("Sorocaba", "Interior", 702490),
-    ("São Bernardo do Campo", "Grande SP", 844483),
-    ("Guarulhos", "Grande SP", 1379182),
-    ("Osasco", "Grande SP", 700682),
-    ("São José dos Campos", "Vale do Paraíba", 750183),
-    ("Bauru", "Interior", 380442),
-    ("Piracicaba", "Interior", 415458),
-    ("São José do Rio Preto", "Interior", 466981),
-    ("Mauá", "Grande SP", 478564),
-    ("Mogi das Cruzes", "Grande SP", 464886),
-    ("Diadema", "Grande SP", 424058),
-    ("Carapicuíba", "Grande SP", 396973),
-    ("Jundiaí", "Interior", 432242),
-    ("Franca", "Interior", 360022),
-    ("Presidente Prudente", "Interior", 234003),
-    ("Marília", "Interior", 240032),
-]
-
-MAYORS_DATA = [
-    # (name, party, term_start, term_end) — in same order as municipalities
-    ("Ricardo Nunes", "MDB", 2021, 2024),
-    ("Dário Saadi", "REPUBLICANOS", 2021, 2024),
-    ("Rogério Santos", "PSDB", 2021, 2024),
-    ("Eduardo Lacerda", "PSD", 2021, 2024),
-    ("Rodrigo Manga", "REPUBLICANOS", 2021, 2024),
-    ("Orlando Morando", "PSDB", 2021, 2024),
-    ("Guti", "PSD", 2021, 2024),
-    ("Rogério Lins", "PODE", 2021, 2024),
-    ("Anderson Farias", "PP", 2021, 2024),
-    ("Suéllen Rosim", "REPUBLICANOS", 2021, 2024),
-    ("Luciano Almeida", "MDB", 2021, 2024),
-    ("Edinho Araújo", "MDB", 2021, 2024),
-    ("Marcelo Oliveira", "PT", 2021, 2024),
-    ("Caio Cunha", "PODE", 2021, 2024),
-    ("José de Filippi", "PT", 2021, 2024),
-    ("Marcos Neves", "MDB", 2021, 2024),
-    ("Luiz Fernando Machado", "PSDB", 2021, 2024),
-    ("Alexandre Ferreira", "MDB", 2021, 2024),
-    ("Eduardo Albertassi", "MDB", 2021, 2024),
-    ("Daniel Alonso", "PODE", 2021, 2024),
-]
-
+# ---------------------------------------------------------------------------
+# Secretarias de Estado — Governo Tarcísio de Freitas (2023-2026)
+# (name, acronym, emoji, secretary_name, party, executives)
+# executives format: "Nome|Partido;Nome|Partido"
+# ---------------------------------------------------------------------------
 SECRETARIATS_DATA = [
-    ("Secretaria de Educação", "SEDUC", "Renato Feder"),
-    ("Secretaria de Saúde", "SES", "Eleuses Paiva"),
-    ("Secretaria de Segurança Pública", "SSP", "Guilherme Derrite"),
-    ("Secretaria de Infraestrutura e Meio Ambiente", "SIMA", "Natália Resende"),
-    ("Secretaria de Desenvolvimento Regional", "SDR", "Marco Vinholi"),
-    ("Secretaria de Fazenda", "SEFAZ", "Samuel Kinoshita"),
-    ("Secretaria de Cultura e Economia Criativa", "SECE", "Marilia Marton"),
-    ("Secretaria de Habitação", "SEHAB", "Marcelo Branco"),
-    ("Secretaria de Agricultura", "SAA", "Itamar Borges"),
-    ("Secretaria de Transportes Metropolitanos", "STM", "Diego Basei"),
+    (
+        "Educação", "SEDUC", "📚",
+        "Renato Feder", "sem partido",
+        "João Marcelo Borges|sem partido;Célia Tokoro|sem partido",
+    ),
+    (
+        "Saúde", "SES", "🏥",
+        "Eleuses Vieira de Paiva", "PL",
+        "Carlos Eduardo Fratezi|sem partido;Ana Cristina|sem partido",
+    ),
+    (
+        "Segurança Pública", "SSP", "🚔",
+        "Guilherme Derrite", "PL",
+        "José Carlos Rocha|sem partido;Benedito Mariano|sem partido",
+    ),
+    (
+        "Fazenda e Planejamento", "SEFAZ", "💰",
+        "Samuel Kinoshita", "PSDB",
+        "Felipe Salto|sem partido;André Carvalho|sem partido",
+    ),
+    (
+        "Meio Ambiente, Infraestrutura e Logística", "SEMIL", "🌿",
+        "Natália Resende", "PL",
+        "Marcus Vinicius|sem partido;Patricia Ellen|sem partido",
+    ),
+    (
+        "Habitação", "SEHAB", "🏠",
+        "Marcello Lima", "PODE",
+        "Marcos Pellegrini|sem partido;Sandra Momesso|sem partido",
+    ),
+    (
+        "Agricultura e Abastecimento", "SAA", "🌾",
+        "Guilherme Piai", "AVANTE",
+        "Fábio Meirelles|sem partido;Ana Paula Rodrigues|sem partido",
+    ),
+    (
+        "Desenvolvimento Econômico", "SDE", "💼",
+        "Jorge Lima Lima", "PL",
+        "Rodrigo Garcia|sem partido;Camila Moretti|sem partido",
+    ),
+    (
+        "Cultura e Economia Criativa", "SEC", "🎭",
+        "Marilia Marton", "sem partido",
+        "Luiz Marcelo|sem partido;Renata Fukushima|sem partido",
+    ),
+    (
+        "Turismo e Viagens", "SETUR", "✈️",
+        "Roberto de Lucena", "REPUBLICANOS",
+        "Thiago Martins|sem partido;Fernanda Lima|sem partido",
+    ),
+    (
+        "Cidades e Desenvolvimento Regional", "SCDR", "🏙️",
+        "Marco Vinholi", "PSDB",
+        "Eduardo Mazzei|sem partido;Sonia Racy|sem partido",
+    ),
+    (
+        "Transportes Metropolitanos", "STM", "🚇",
+        "Diego Basei", "sem partido",
+        "Paulo Galli|sem partido;Carla Figueiredo|sem partido",
+    ),
+    (
+        "Desenvolvimento Social e Família", "SEDS", "🤝",
+        "Gilmara Lima", "sem partido",
+        "Vania Borges|sem partido;Claudia Motta|sem partido",
+    ),
+    (
+        "Esportes", "SE", "⚽",
+        "Laercio Benko", "sem partido",
+        "Carlos Augusto|sem partido;Marcos Aurélio|sem partido",
+    ),
+    (
+        "Casa Civil", "CC", "🏛️",
+        "Arthur Lima", "sem partido",
+        "Mauricio Trentin|sem partido;Adriana Lima|sem partido",
+    ),
+    (
+        "Parcerias em Investimentos", "SPI", "🤝",
+        "Rafael Benini", "sem partido",
+        "Bruno Giannini|sem partido;Lucas Oliveira|sem partido",
+    ),
+    (
+        "Relações Internacionais", "SRI", "🌍",
+        "Julio Saqui", "sem partido",
+        "Monica Nogueira|sem partido;Rodrigo Alves|sem partido",
+    ),
+    (
+        "Administração Penitenciária", "SAP", "🔒",
+        "Marcello Streifinger", "sem partido",
+        "Paulo Lacerda|sem partido;Renato Campos|sem partido",
+    ),
+    (
+        "Comunicação", "SECOM", "📢",
+        "Tanara Cossa", "sem partido",
+        "Alexandre Tavares|sem partido;Bianca Fernandes|sem partido",
+    ),
+    (
+        "Governo", "SG", "⭐",
+        "Gilberto Kassab", "PSD",
+        "Marcos Penido|PSDB;Renato Arnaldo|PSD",
+    ),
 ]
 
-# budget base values in billions
+# budget base values in billions (used to generate realistic orçamento data)
 BUDGET_BASES = {
-    "SEDUC": 70.0,
-    "SES": 50.0,
-    "SSP": 22.0,
-    "SIMA": 15.0,
-    "SDR": 12.0,
-    "SEFAZ": 10.0,
-    "SECE": 3.5,
-    "SEHAB": 8.0,
-    "SAA": 4.0,
-    "STM": 18.0,
+    "SEDUC": 70.0, "SES": 50.0, "SSP": 22.0, "SEMIL": 15.0, "SCDR": 12.0,
+    "SEFAZ": 10.0, "SEC": 3.5, "SEHAB": 8.0, "SAA": 4.0, "STM": 18.0,
+    "SDE": 6.0, "SEDS": 9.0, "SETUR": 2.5, "SE": 2.0, "CC": 3.0,
+    "SPI": 1.5, "SRI": 0.8, "SAP": 7.0, "SECOM": 1.2, "SG": 2.0,
 }
+
+# ---------------------------------------------------------------------------
+# Municípios — maiores cidades SP com coordenadas geográficas
+# (name, region, population, lat, lng)
+# ---------------------------------------------------------------------------
+MUNICIPALITIES_DATA = [
+    ("São Paulo", "Grande SP", 12325232, -23.5505, -46.6333),
+    ("Guarulhos", "Grande SP", 1392121, -23.4628, -46.5333),
+    ("Campinas", "Interior", 1223237, -22.9099, -47.0626),
+    ("São Bernardo do Campo", "Grande SP", 844483, -23.6939, -46.5650),
+    ("São José dos Campos", "Vale do Paraíba", 750183, -23.1794, -45.8869),
+    ("Santo André", "Grande SP", 720294, -23.6639, -46.5383),
+    ("Osasco", "Grande SP", 700682, -23.5324, -46.7920),
+    ("Sorocaba", "Interior", 724670, -23.5015, -47.4526),
+    ("Ribeirão Preto", "Interior", 720294, -21.1775, -47.8103),
+    ("Mauá", "Grande SP", 478564, -23.6678, -46.4611),
+    ("Mogi das Cruzes", "Grande SP", 464886, -23.5224, -46.1883),
+    ("São José do Rio Preto", "Interior", 466981, -20.8080, -49.3816),
+    ("Diadema", "Grande SP", 424058, -23.6861, -46.6231),
+    ("Jundiaí", "Interior", 432242, -23.1857, -46.8989),
+    ("Piracicaba", "Interior", 415458, -22.7253, -47.6497),
+    ("Carapicuíba", "Grande SP", 396973, -23.5226, -46.8350),
+    ("Bauru", "Interior", 380442, -22.3147, -49.0600),
+    ("Santos", "Litoral", 433311, -23.9618, -46.3322),
+    ("Mogi Guaçu", "Interior", 151201, -22.3724, -46.9410),
+    ("Praia Grande", "Litoral", 338045, -24.0059, -46.4022),
+    ("Taubaté", "Vale do Paraíba", 318069, -23.0246, -45.5556),
+    ("Franca", "Interior", 360022, -20.5386, -47.4008),
+    ("Limeira", "Interior", 317048, -22.5639, -47.4017),
+    ("São Carlos", "Interior", 259805, -22.0087, -47.8909),
+    ("Americana", "Interior", 242282, -22.7384, -47.3315),
+    ("Araraquara", "Interior", 242755, -21.7942, -48.1758),
+    ("Jacareí", "Vale do Paraíba", 252035, -23.2979, -45.9652),
+    ("Presidente Prudente", "Interior", 234003, -22.1208, -51.3882),
+    ("Marília", "Interior", 240032, -22.2192, -49.9434),
+    ("São Vicente", "Litoral", 371188, -23.9607, -46.3882),
+]
+
+# Mayors — eleições municipais outubro 2024, mandato 2025-2028
+# (name, party, term_start, term_end)
+MAYORS_DATA = [
+    ("Ricardo Nunes", "MDB", 2025, 2028),            # São Paulo — reeleito
+    ("Gustavo Henric Costa", "PP", 2025, 2028),      # Guarulhos
+    ("Dário Saadi", "REPUBLICANOS", 2025, 2028),     # Campinas — reeleito
+    ("Marcelo Lima", "PODE", 2025, 2028),            # São Bernardo do Campo
+    ("Anderson Farias", "PP", 2025, 2028),           # São José dos Campos
+    ("Gilvan Junior", "SD", 2025, 2028),             # Santo André
+    ("Rogério Lins", "PODE", 2025, 2028),            # Osasco — reeleito
+    ("Rodrigo Manga", "REPUBLICANOS", 2025, 2028),   # Sorocaba — reeleito
+    ("Eduardo Lacera", "PSD", 2025, 2028),           # Ribeirão Preto
+    ("Marcelo Oliveira", "PT", 2025, 2028),          # Mauá — reeleito
+    ("Caio Cunha", "PODE", 2025, 2028),              # Mogi das Cruzes — reeleito
+    ("Edinho Araújo", "MDB", 2025, 2028),            # São José do Rio Preto — reeleito
+    ("José de Filippi", "PT", 2025, 2028),           # Diadema — reeleito
+    ("Gustavo Martinelli", "MDB", 2025, 2028),       # Jundiaí — reeleito
+    ("Luciano Almeida", "MDB", 2025, 2028),          # Piracicaba — reeleito
+    ("Marcos Neves", "MDB", 2025, 2028),             # Carapicuíba
+    ("Suéllen Rosim", "REPUBLICANOS", 2025, 2028),   # Bauru — reeleita
+    ("Lucas Mangas Bigi", "PL", 2025, 2028),         # Santos
+    ("Walter Caveanha", "REPUBLICANOS", 2025, 2028), # Mogi Guaçu
+    ("Carlos Persuhn", "PP", 2025, 2028),            # Praia Grande
+    ("Ortiz Junior", "PSD", 2025, 2028),             # Taubaté
+    ("Alexandre Ferreira", "MDB", 2025, 2028),       # Franca
+    ("Denis Andia", "PL", 2025, 2028),               # Limeira
+    ("Netto Donato", "PSDB", 2025, 2028),            # São Carlos
+    ("Chico Sardelli", "PL", 2025, 2028),            # Americana — reeleito
+    ("Edson Antonio Martins", "MDB", 2025, 2028),    # Araraquara
+    ("Lucas Storino", "PSDB", 2025, 2028),           # Jacareí
+    ("Eduardo Albertassi", "MDB", 2025, 2028),       # Presidente Prudente
+    ("Daniel Alonso", "PODE", 2025, 2028),           # Marília
+    ("Robson Rodrigues da Fonseca", "PSD", 2025, 2028), # São Vicente
+]
 
 PROGRAMS_DATA = [
     ("Escola em Tempo Integral", "Ampliação da jornada escolar em período integral nas escolas estaduais de São Paulo.", 1, 2022, None, 4_800_000_000.0, "ativo"),
-    ("Bolsa do Povo", "Programa de transferência de renda para famílias em situação de vulnerabilidade social.", 2, 2021, None, 2_100_000_000.0, "ativo"),
+    ("Bolsa do Povo", "Programa de transferência de renda para famílias em situação de vulnerabilidade social.", 13, 2021, None, 2_100_000_000.0, "ativo"),
     ("Educação SP Digital", "Transformação digital das escolas estaduais com tablets, conectividade e formação docente.", 1, 2023, None, 1_200_000_000.0, "ativo"),
-    ("Habita SP", "Programa habitacional para famílias de baixa renda com subsídios e parcerias com municípios.", 8, 2022, None, 3_400_000_000.0, "ativo"),
-    ("Infra SP", "Modernização de rodovias, pontes e estrutura viária do estado de São Paulo.", 4, 2021, 2025, 6_700_000_000.0, "ativo"),
-    ("Verde Perto", "Recuperação de áreas degradadas, reflorestamento e pagamento por serviços ambientais.", 4, 2022, 2024, 850_000_000.0, "concluido"),
-    ("Agro São Paulo", "Fomento ao agronegócio familiar e modernização do setor rural paulista.", 9, 2023, None, 620_000_000.0, "ativo"),
-    ("Metrô SP Expansão", "Expansão das linhas de metrô e trem metropolitano na Região Metropolitana de São Paulo.", 10, 2021, None, 12_500_000_000.0, "ativo"),
+    ("Habita SP", "Programa habitacional para famílias de baixa renda com subsídios e parcerias com municípios.", 6, 2022, None, 3_400_000_000.0, "ativo"),
+    ("Infra SP", "Modernização de rodovias, pontes e estrutura viária do estado de São Paulo.", 5, 2021, 2025, 6_700_000_000.0, "ativo"),
+    ("Verde Perto", "Recuperação de áreas degradadas, reflorestamento e pagamento por serviços ambientais.", 5, 2022, 2024, 850_000_000.0, "concluido"),
+    ("Agro SP", "Fomento ao agronegócio familiar e modernização do setor rural paulista.", 7, 2023, None, 620_000_000.0, "ativo"),
+    ("Metrô SP Expansão", "Expansão das linhas de metrô e trem metropolitano na RMSP.", 12, 2021, None, 12_500_000_000.0, "ativo"),
+    ("SP nos Trilhos", "Modernização e expansão da malha ferroviária estadual.", 12, 2022, None, 5_200_000_000.0, "ativo"),
+    ("São Paulo pela Paz", "Programa integrado de segurança pública com tecnologia e inteligência.", 3, 2023, None, 980_000_000.0, "ativo"),
+    ("Construa SP", "Programa habitacional de mutirão e regularização fundiária.", 6, 2023, None, 1_800_000_000.0, "ativo"),
+    ("Investe SP Turismo", "Fomento ao turismo regional com infraestrutura e marketing.", 10, 2023, None, 450_000_000.0, "ativo"),
 ]
 
 AMENDMENT_DESCRIPTIONS = [
@@ -262,11 +380,13 @@ def seed_all():
         db.flush()
 
         municipalities = []
-        for i, (mname, region, pop) in enumerate(MUNICIPALITIES_DATA):
+        for i, (mname, region, pop, lat, lng) in enumerate(MUNICIPALITIES_DATA):
             mun = Municipality(
                 name=mname,
                 region=region,
                 population=pop,
+                lat=lat,
+                lng=lng,
                 mayor_id=mayors[i].id,
             )
             db.add(mun)
@@ -275,8 +395,15 @@ def seed_all():
 
         print("Seeding secretariats...")
         secretariats = []
-        for name, acronym, sec_name in SECRETARIATS_DATA:
-            s = Secretariat(name=name, acronym=acronym, secretary_name=sec_name)
+        for name, acronym, emoji, sec_name, party, executives in SECRETARIATS_DATA:
+            s = Secretariat(
+                name=name,
+                acronym=acronym,
+                emoji=emoji,
+                secretary_name=sec_name,
+                party=party,
+                executives=executives,
+            )
             db.add(s)
             secretariats.append(s)
         db.flush()
@@ -304,7 +431,7 @@ def seed_all():
         ratios = {"dotacao": 1.0, "empenhado": 0.88, "liquidado": 0.82, "pago": 0.75}
 
         for sec in secretariats:
-            base = BUDGET_BASES.get(sec.acronym, 10.0) * 1_000_000_000
+            base = BUDGET_BASES.get(sec.acronym, 5.0) * 1_000_000_000
             for year in range(2022, 2026):
                 year_factor = 1 + (year - 2022) * 0.05
                 for cat in categories:
@@ -337,11 +464,10 @@ def seed_all():
         statuses = ["aprovada", "pendente", "executada"]
         status_weights = [0.3, 0.25, 0.45]
 
-        # ~55 amendments linking deputies to municipalities
         random.seed(99)
         amendment_combinations = set()
         count = 0
-        while count < 55:
+        while count < 80:
             dep = random.choice(deputies)
             mun = random.choice(municipalities)
             year = random.randint(2023, 2025)

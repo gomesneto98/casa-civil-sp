@@ -26,6 +26,8 @@ class Municipality(Base):
     name = Column(String, nullable=False)
     region = Column(String, nullable=False)
     population = Column(Integer, nullable=True)
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
     mayor_id = Column(Integer, ForeignKey("mayors.id"), nullable=True)
 
     mayor = relationship("Mayor", back_populates="municipality")
@@ -66,7 +68,10 @@ class Secretariat(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     acronym = Column(String, nullable=False)
+    emoji = Column(String, nullable=True)
     secretary_name = Column(String, nullable=True)
+    party = Column(String, nullable=True)
+    executives = Column(String, nullable=True)  # semicolon-separated "Nome|Partido"
 
     budget_items = relationship("BudgetItem", back_populates="secretariat")
 
