@@ -411,19 +411,19 @@ OBJ_TO_SEC = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 5, 8: 8, 9: 9, 10: 10, 11: 
 
 # Templates de meta por objetivo (descrições realistas)
 META_TEMPLATES = {
-    1: [  # Educação
-        ("Ampliar o número de matrículas na educação integral", "unidades", 500000, 487000, "2026-12", "A"),
-        ("Construir e reformar escolas estaduais", "unidades", 400, 312, "2026-06", "A"),
-        ("Implementar sistema de avaliação de aprendizagem", "%", 100, 95, "2025-12", "B"),
-        ("Reduzir o abandono escolar no ensino médio", "%", 10, 8.5, "2026-12", "A"),
-        ("Capacitar professores em metodologias ativas", "profissionais", 80000, 71000, "2026-06", "B"),
-        ("Expandir acesso a tecnologia nas escolas públicas", "unidades", 1200, 980, "2026-12", "A"),
-        ("Aumentar índice IDESP no ensino fundamental", "índice", 4.5, 4.2, "2026-12", "B"),
-        ("Implantar centros de formação profissional", "unidades", 30, 22, "2025-12", "B"),
-        ("Garantir material didático a todos os alunos", "%", 100, 98, "2025-03", "A"),
-        ("Expandir programa de alimentação escolar saudável", "escolas", 5000, 4800, "2025-12", "C"),
-        ("Criar salas de recursos multifuncionais inclusivas", "unidades", 500, 430, "2026-06", "B"),
-        ("Implementar jornada integral nas CEIs municipais", "CEIs", 200, 195, "2026-12", "B"),
+    1: [  # Educação Pública com Efetividade, Qualidade e Acesso Ampliados
+        ("Alcançar Índice de 42% de Estudantes com Nota Superior a 5 no Provão Paulista, mediante a Implantação dos Programas Sala do Futuro e Aluno Presente", "estudantes com nota <5", 94, 94, "2026-12", "A"),
+        ("Ampliar a Oferta de Ensino Técnico Integrado na Rede Estadual, Alcançando 210 mil Vagas, com Programa Educação Profissional Paulista", "estudantes no EM integrado", 465000, 445200, "2026-12", "A"),
+        ("Fortalecer a Cooperação com 100% dos Municípios Paulistas - Alfabetiza SP", "municípios atendidos", 645, 645, "2026-12", "A"),
+        ("Instalar Salas de Recursos ou Espaços Multiuso em 2300 Escolas Estaduais, Garantindo a Implantação da Política de Educação Especial em Toda a Rede Estadual", "escolas com sala de recurso", 2300, 4675, "2026-12", "A"),
+        ("Ofertar 187 mil Bolsas de Estudo em Programas de Extensão Curricular para Atender os Estudantes da Rede Estadual Buscando a Melhoria do Desempenho e Frequência Escolar", "estudantes participantes", 187000, 22792, "2026-12", "B"),
+        ("Qualificar a Gestão de Pessoas da Secretaria da Educação", "servidores com gratificação", 78640, 60948, "2026-12", "B"),
+        ("Realizar 3.050 Intervenções de Estrutura Física na Rede Estadual de Ensino", "intervenções em escolas", 3050, 4152, "2026-12", "A"),
+        ("Fortalecer a Autogestão Escolar, com Participação da Comunidade, por meio do Programa Dinheiro Direto na Escola - PDDE", "APM com 50% recurso executado", 87, 87, "2026-12", "B"),
+        ("Alcançar 92% de Jovens em Medidas Socioeducativas e Cautelar Certificados em Cursos de Qualificação Profissional, Mediante o Atendimento Integral à Educação", "% de adolescentes qualificados", 17, 17, "2026-12", "A"),
+        ("Implantar as Ações de Melhoria da Convivência e Proteção Escolar em 4.800 Escolas da Rede Estadual", "escolas assistidas", 4800, 4981, "2026-12", "B"),
+        ("Aperfeiçoar os Programas de Ensino Integral, ampliando a Oferta e Alcançando 1 Milhão de Estudantes", "estudantes em jornada integral", 1000000, 892041, "2026-12", "A"),
+        ("Implantar o Programa Escolas Cívico-Militares", "escolas ativas no programa", 100, 100, "2026-12", "C"),
     ],
     2: [  # Saúde
         ("Ampliar cobertura de atenção básica à saúde", "%", 95, 89, "2026-12", "A"),
@@ -744,7 +744,7 @@ def _seed_metas(db: Session, secretariats: list):
         for i, template in enumerate(templates):
             desc, unit, planned, actual, planned_date, priority = template
             status = statuses[i] if i < len(statuses) else "Em andamento"
-            progress = round((actual / planned * 100) if planned > 0 else 0, 1)
+            progress = min(100.0, round((actual / planned * 100) if planned > 0 else 0, 1))
 
             m = Meta(
                 code=f"{obj_num}.{i + 1}",
