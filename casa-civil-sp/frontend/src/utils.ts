@@ -28,6 +28,8 @@ export const PARTY_COLORS: Record<string, string> = {
   MISSÃO: '#16a085',
   CIDADANIA: '#d35400',
   AVANTE: '#2c3e50',
+  REDE: '#00a65a',
+  PSC: '#8b4513',
 }
 
 export function partyColor(party: string): string {

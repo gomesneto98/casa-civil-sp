@@ -26,7 +26,7 @@ interface DeputyDetail extends Deputy {
   amendments: Amendment[]
 }
 
-const PARTIES = ['PL', 'PT', 'PSDB', 'PSOL', 'PSD', 'REPUBLICANOS', 'UNIÃO', 'PP', 'Outros']
+const PARTIES = ['PL', 'PT', 'PSDB', 'PSOL', 'PSD', 'REPUBLICANOS', 'UNIÃO', 'PP', 'MDB', 'PSB', 'PODE', 'Outros']
 
 function PhotoAvatar({ url, name }: { url: string | null; name: string }) {
   const [err, setErr] = useState(false)
@@ -35,10 +35,10 @@ function PhotoAvatar({ url, name }: { url: string | null; name: string }) {
   if (!src || err) {
     return (
       <div style={{
-        width: 56, height: 56, borderRadius: '50%',
+        width: 76, height: 76, borderRadius: '50%',
         background: 'var(--bg3)', border: '2px solid var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 20, color: 'var(--muted)', flexShrink: 0,
+        fontSize: 26, color: 'var(--muted)', flexShrink: 0,
       }}>
         {name.charAt(0).toUpperCase()}
       </div>
@@ -51,7 +51,7 @@ function PhotoAvatar({ url, name }: { url: string | null; name: string }) {
       alt={name}
       onError={() => setErr(true)}
       style={{
-        width: 56, height: 56, borderRadius: '50%',
+        width: 76, height: 76, borderRadius: '50%',
         objectFit: 'cover', border: '2px solid var(--border)', flexShrink: 0,
       }}
     />
