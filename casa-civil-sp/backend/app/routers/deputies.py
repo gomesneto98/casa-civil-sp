@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from app.database import get_db
 from app.models import Deputy, Amendment, Municipality
-from app.schemas import DeputySimple, DeputyDetail, MunicipalitySimple
+from app.schemas import DeputySimple, DeputyDetail, MunicipalitySimple, DeputyCreate, DeputyUpdate
 
 router = APIRouter(prefix="/api/deputies", tags=["deputies"])
 
@@ -66,3 +66,33 @@ def get_deputy_municipalities(deputy_id: int, db: Session = Depends(get_db)):
     ids = [r[0] for r in mun_ids]
     municipalities = db.query(Municipality).filter(Municipality.id.in_(ids)).all()
     return municipalities
+
+
+@router.post("", response_model=DeputySimple, status_code=201)
+def create_deputy(data: DeputyCreate, db: Session = Depends(get_db)):
+    dep = Deputy(**data.model_dump())
+    db.add(dep)
+    db.commit()
+    db.refresh(dep)
+    return dep
+
+
+@router.put("/{deputy_id}", response_model=DeputySimple)
+def update_deputy(deputy_id: int, data: DeputyUpdate, db: Session = Depends(get_db)):
+    dep = db.query(Deputy).filter(Deputy.id == deputy_id).first()
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deputy not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(dep, k, v)
+    db.commit()
+    db.refresh(dep)
+    return dep
+
+
+@router.delete("/{deputy_id}", status_code=204)
+def delete_deputy(deputy_id: int, db: Session = Depends(get_db)):
+    dep = db.query(Deputy).filter(Deputy.id == deputy_id).first()
+    if not dep:
+        raise HTTPException(status_code=404, detail="Deputy not found")
+    db.delete(dep)
+    db.commit()

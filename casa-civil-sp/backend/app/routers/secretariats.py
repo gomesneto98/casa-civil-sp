@@ -5,7 +5,10 @@ from typing import List
 
 from app.database import get_db
 from app.models import Secretariat, BudgetItem, Program, Meta
-from app.schemas import SecretariatSimple, SecretariatDetail, ProgramOut
+from app.schemas import (
+    SecretariatSimple, SecretariatDetail, ProgramOut,
+    SecretariatCreate, SecretariatUpdate,
+)
 
 router = APIRouter(prefix="/api/secretariats", tags=["secretariats"])
 
@@ -80,3 +83,33 @@ def get_secretariat_programs(secretariat_id: int, db: Session = Depends(get_db))
         .all()
     )
     return programs
+
+
+@router.post("", response_model=SecretariatSimple, status_code=201)
+def create_secretariat(data: SecretariatCreate, db: Session = Depends(get_db)):
+    sec = Secretariat(**data.model_dump())
+    db.add(sec)
+    db.commit()
+    db.refresh(sec)
+    return sec
+
+
+@router.put("/{secretariat_id}", response_model=SecretariatSimple)
+def update_secretariat(secretariat_id: int, data: SecretariatUpdate, db: Session = Depends(get_db)):
+    sec = db.query(Secretariat).filter(Secretariat.id == secretariat_id).first()
+    if not sec:
+        raise HTTPException(status_code=404, detail="Secretariat not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(sec, k, v)
+    db.commit()
+    db.refresh(sec)
+    return sec
+
+
+@router.delete("/{secretariat_id}", status_code=204)
+def delete_secretariat(secretariat_id: int, db: Session = Depends(get_db)):
+    sec = db.query(Secretariat).filter(Secretariat.id == secretariat_id).first()
+    if not sec:
+        raise HTTPException(status_code=404, detail="Secretariat not found")
+    db.delete(sec)
+    db.commit()

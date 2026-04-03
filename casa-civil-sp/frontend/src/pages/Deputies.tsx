@@ -27,6 +27,123 @@ interface DeputyDetail extends Deputy {
 }
 
 const PARTIES = ['PL', 'PT', 'PSDB', 'PSOL', 'PSD', 'REPUBLICANOS', 'UNIÃO', 'PP', 'MDB', 'PSB', 'PODE', 'Outros']
+const ALL_PARTIES = ['PL', 'PT', 'PSDB', 'PSOL', 'PSD', 'REPUBLICANOS', 'UNIÃO', 'PP', 'MDB', 'PSB', 'PODE', 'PDT', 'SOLIDARIEDADE', 'AVANTE', 'PATRIOTA', 'PRD', 'REDE', 'PSC', 'DEM', 'Sem partido']
+
+const btnBase: React.CSSProperties = { border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 12, padding: '5px 12px' }
+const btnPrimary: React.CSSProperties = { ...btnBase, background: 'var(--accent)', color: '#fff' }
+const btnGhost: React.CSSProperties = { ...btnBase, background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }
+const btnDanger: React.CSSProperties = { ...btnBase, background: 'rgba(248,81,73,0.12)', color: '#f85149' }
+const labelStyle: React.CSSProperties = { fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }
+
+type DepForm = { name: string; party: string; votes_2022: string; registration: string; ranking: string; is_substitute: boolean; mandates: string; photo_url: string }
+const EMPTY_DEP: DepForm = { name: '', party: 'PL', votes_2022: '0', registration: '', ranking: '0', is_substitute: false, mandates: '1', photo_url: '' }
+
+function depToForm(d: Deputy): DepForm {
+  return { name: d.name, party: d.party, votes_2022: String(d.votes_2022), registration: '', ranking: String(d.ranking), is_substitute: d.is_substitute, mandates: String(d.mandates), photo_url: d.photo_url || '' }
+}
+
+function DeputyFormModal({ item, onClose, onSaved }: { item: Deputy | null; onClose: () => void; onSaved: (d: Deputy) => void }) {
+  const [form, setForm] = useState<DepForm>(item ? depToForm(item) : EMPTY_DEP)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  function set<K extends keyof DepForm>(k: K, v: DepForm[K]) { setForm(f => ({ ...f, [k]: v })) }
+
+  async function save() {
+    if (!form.name.trim()) { setError('Nome é obrigatório'); return }
+    setSaving(true); setError('')
+    const payload = {
+      name: form.name.trim(), party: form.party,
+      votes_2022: parseInt(form.votes_2022) || 0,
+      registration: form.registration ? parseInt(form.registration) : null,
+      ranking: parseInt(form.ranking) || 0,
+      is_substitute: form.is_substitute,
+      mandates: parseInt(form.mandates) || 1,
+      photo_url: form.photo_url.trim() || null,
+    }
+    try {
+      const { data } = item
+        ? await axios.put<Deputy>(`/api/deputies/${item.id}`, payload)
+        : await axios.post<Deputy>('/api/deputies', payload)
+      onSaved(data); onClose()
+    } catch { setError('Erro ao salvar.') } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span style={{ fontWeight: 700 }}>{item ? 'Editar Deputado' : 'Novo Deputado'}</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div style={labelStyle}>Nome *</div>
+            <input className="search-input" style={{ width: '100%', marginTop: 6 }} value={form.name} onChange={e => set('name', e.target.value)} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 90px', gap: 12 }}>
+            <div>
+              <div style={labelStyle}>Partido</div>
+              <select className="search-input" style={{ width: '100%', marginTop: 6 }} value={form.party} onChange={e => set('party', e.target.value)}>
+                {ALL_PARTIES.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={labelStyle}>Votos 2022</div>
+              <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" value={form.votes_2022} onChange={e => set('votes_2022', e.target.value)} />
+            </div>
+            <div>
+              <div style={labelStyle}>Mandatos</div>
+              <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" value={form.mandates} onChange={e => set('mandates', e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <div style={labelStyle}>Ranking</div>
+              <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" value={form.ranking} onChange={e => set('ranking', e.target.value)} />
+            </div>
+            <div>
+              <div style={labelStyle}>Matrícula ALESP</div>
+              <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" value={form.registration} onChange={e => set('registration', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <div style={labelStyle}>URL da foto (hash do ALESP)</div>
+            <input className="search-input" style={{ width: '100%', marginTop: 6 }} value={form.photo_url} onChange={e => set('photo_url', e.target.value)} placeholder="hash-da-foto" />
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+            <input type="checkbox" checked={form.is_substitute} onChange={e => set('is_substitute', e.target.checked)} />
+            Suplente
+          </label>
+          {error && <div style={{ color: '#f85149', fontSize: 13 }}>{error}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button style={btnGhost} onClick={onClose}>Cancelar</button>
+            <button style={btnPrimary} onClick={save} disabled={saving}>{saving ? 'Salvando...' : (item ? 'Salvar' : 'Criar')}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DeleteConfirm({ name, onClose, onConfirm }: { name: string; onClose: () => void; onConfirm: () => void }) {
+  const [loading, setLoading] = useState(false)
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span style={{ fontWeight: 700 }}>Excluir?</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <p style={{ color: 'var(--muted)', margin: '0 0 16px', fontSize: 13 }}>{name}</p>
+        <p style={{ color: '#f85149', fontSize: 12, marginBottom: 20 }}>Esta ação não pode ser desfeita.</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button style={btnGhost} onClick={onClose}>Cancelar</button>
+          <button style={{ ...btnBase, background: '#f85149', color: '#fff' }} onClick={async () => { setLoading(true); await onConfirm() }} disabled={loading}>{loading ? 'Excluindo...' : 'Excluir'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function PhotoAvatar({ url, name }: { url: string | null; name: string }) {
   const [err, setErr] = useState(false)
@@ -153,12 +270,29 @@ export default function Deputies() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selected, setSelected] = useState<DeputyDetail | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [modal, setModal] = useState<{ item: Deputy | null } | null>(null)
+  const [deleting, setDeleting] = useState<Deputy | null>(null)
 
   useEffect(() => {
     axios.get<Deputy[]>('/api/deputies')
       .then(r => setDeputies(r.data))
       .finally(() => setLoading(false))
   }, [])
+
+  function handleSaved(d: Deputy) {
+    setDeputies(prev => {
+      const idx = prev.findIndex(x => x.id === d.id)
+      if (idx >= 0) { const next = [...prev]; next[idx] = d; return next }
+      return [...prev, d]
+    })
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleting) return
+    await axios.delete(`/api/deputies/${deleting.id}`)
+    setDeputies(prev => prev.filter(d => d.id !== deleting.id))
+    setDeleting(null)
+  }
 
   const filtered = useMemo(() => {
     let list = [...deputies]
@@ -195,8 +329,13 @@ export default function Deputies() {
 
   return (
     <div>
-      <div className="page-title">ALESP — Deputados Estaduais</div>
-      <div className="page-subtitle">35ª Legislatura · {deputies.length} deputados</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 4 }}>
+        <div>
+          <div className="page-title">ALESP — Deputados Estaduais</div>
+          <div className="page-subtitle">35ª Legislatura · {deputies.length} deputados</div>
+        </div>
+        <button style={btnPrimary} onClick={() => setModal({ item: null })}>+ Novo Deputado</button>
+      </div>
 
       {/* Controls */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -270,45 +409,31 @@ export default function Deputies() {
             <div
               key={d.id}
               className="card"
-              onClick={() => handleSelect(d.id)}
-              style={{
-                cursor: 'pointer',
-                transition: 'border-color 0.15s, transform 0.1s',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 10,
-                padding: '16px 12px',
-              }}
+              style={{ cursor: 'pointer', transition: 'border-color 0.15s, transform 0.1s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '16px 12px', position: 'relative' }}
               onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
               onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
             >
-              <PhotoAvatar url={d.photo_url} name={d.name} />
-              <div style={{ textAlign: 'center', width: '100%' }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, lineHeight: 1.3 }}>{d.name}</div>
-                <span className="badge" style={{
-                  background: `${partyColor(d.party)}22`,
-                  color: partyColor(d.party),
-                }}>
-                  {d.party}
-                </span>
-                {d.is_substitute && (
-                  <span className="badge" style={{ background: 'var(--bg3)', color: 'var(--muted)', marginLeft: 4 }}>
-                    Suplente
-                  </span>
-                )}
+              {/* CRUD buttons */}
+              <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 2 }} onClick={e => e.stopPropagation()}>
+                <button style={{ ...btnGhost, padding: '2px 6px', fontSize: 11 }} onClick={() => setModal({ item: d })}>✏️</button>
+                <button style={{ ...btnDanger, padding: '2px 6px', fontSize: 11 }} onClick={() => setDeleting(d)}>🗑️</button>
               </div>
-              <div style={{
-                width: '100%', display: 'flex', justifyContent: 'space-between',
-                borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2,
-              }}>
-                <div style={{ textAlign: 'center', flex: 1 }}>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Votos</div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{d.votes_2022.toLocaleString('pt-BR')}</div>
+              <div onClick={() => handleSelect(d.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+                <PhotoAvatar url={d.photo_url} name={d.name} />
+                <div style={{ textAlign: 'center', width: '100%' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, lineHeight: 1.3 }}>{d.name}</div>
+                  <span className="badge" style={{ background: `${partyColor(d.party)}22`, color: partyColor(d.party) }}>{d.party}</span>
+                  {d.is_substitute && <span className="badge" style={{ background: 'var(--bg3)', color: 'var(--muted)', marginLeft: 4 }}>Suplente</span>}
                 </div>
-                <div style={{ textAlign: 'center', flex: 1 }}>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Mandatos</div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{d.mandates}</div>
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>Votos</div>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{d.votes_2022.toLocaleString('pt-BR')}</div>
+                  </div>
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>Mandatos</div>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{d.mandates}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -324,12 +449,13 @@ export default function Deputies() {
                 <th>Votos 2022</th>
                 <th>Mandatos</th>
                 <th>Ranking</th>
+                <th style={{ width: 80 }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(d => (
-                <tr key={d.id} onClick={() => handleSelect(d.id)}>
-                  <td>
+                <tr key={d.id}>
+                  <td onClick={() => handleSelect(d.id)} style={{ cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <PhotoAvatar url={d.photo_url} name={d.name} />
                       <div>
@@ -338,14 +464,16 @@ export default function Deputies() {
                       </div>
                     </div>
                   </td>
-                  <td>
-                    <span className="badge" style={{ background: `${partyColor(d.party)}22`, color: partyColor(d.party) }}>
-                      {d.party}
-                    </span>
-                  </td>
+                  <td><span className="badge" style={{ background: `${partyColor(d.party)}22`, color: partyColor(d.party) }}>{d.party}</span></td>
                   <td>{d.votes_2022.toLocaleString('pt-BR')}</td>
                   <td>{d.mandates}</td>
                   <td>{d.ranking > 0 ? `#${d.ranking}` : '—'}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button style={{ ...btnGhost, padding: '3px 7px', fontSize: 12 }} onClick={() => setModal({ item: d })}>✏️</button>
+                      <button style={{ ...btnDanger, padding: '3px 7px', fontSize: 12 }} onClick={() => setDeleting(d)}>🗑️</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -353,15 +481,12 @@ export default function Deputies() {
         </div>
       )}
 
-      {selected && (
-        <DeputyModal deputy={selected} onClose={() => setSelected(null)} />
-      )}
+      {selected && <DeputyModal deputy={selected} onClose={() => setSelected(null)} />}
+      {modal && <DeputyFormModal item={modal.item} onClose={() => setModal(null)} onSaved={handleSaved} />}
+      {deleting && <DeleteConfirm name={deleting.name} onClose={() => setDeleting(null)} onConfirm={handleDeleteConfirm} />}
 
       {loadingDetail && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999,
-        }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
           <div style={{ color: 'var(--muted)', fontSize: 14 }}>Carregando...</div>
         </div>
       )}

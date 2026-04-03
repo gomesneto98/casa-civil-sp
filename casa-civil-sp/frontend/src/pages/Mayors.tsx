@@ -30,6 +30,161 @@ const REGION_COLORS: Record<string, string> = {
 }
 
 const REGIONS = ['Todos', 'Grande SP', 'Interior', 'Litoral', 'Vale do Paraíba']
+const ALL_PARTIES = ['PL', 'PT', 'PSDB', 'PSOL', 'PSD', 'REPUBLICANOS', 'UNIÃO', 'PP', 'MDB', 'PSB', 'PODE', 'PDT', 'SOLIDARIEDADE', 'PATRIOTA', 'PRD', 'AVANTE', 'Outro']
+
+const btnBase: React.CSSProperties = { border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 12, padding: '5px 12px' }
+const btnPrimary: React.CSSProperties = { ...btnBase, background: 'var(--accent)', color: '#fff' }
+const btnGhost: React.CSSProperties = { ...btnBase, background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }
+const btnDanger: React.CSSProperties = { ...btnBase, background: 'rgba(248,81,73,0.12)', color: '#f85149' }
+const labelStyle: React.CSSProperties = { fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }
+
+// ── Municipality form modal ──────────────────────────────────────────────────
+
+type MunForm = { name: string; region: string; population: string; lat: string; lng: string }
+type MayorForm = { name: string; party: string; term_start: string; term_end: string }
+
+function MunicipalityModal({
+  item, onClose, onSaved,
+}: { item: Municipality | null; onClose: () => void; onSaved: (m: Municipality) => void }) {
+  const [mun, setMun] = useState<MunForm>({
+    name: item?.name || '', region: item?.region || 'Interior',
+    population: item?.population?.toString() || '',
+    lat: item?.lat?.toString() || '', lng: item?.lng?.toString() || '',
+  })
+  const [mayor, setMayor] = useState<MayorForm>({
+    name: item?.mayor?.name || '', party: item?.mayor?.party || 'PL',
+    term_start: item?.mayor?.term_start?.toString() || '2025',
+    term_end: item?.mayor?.term_end?.toString() || '2028',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  function setM<K extends keyof MunForm>(k: K, v: string) { setMun(f => ({ ...f, [k]: v })) }
+  function setMa<K extends keyof MayorForm>(k: K, v: string) { setMayor(f => ({ ...f, [k]: v })) }
+
+  async function save() {
+    if (!mun.name.trim()) { setError('Nome do município é obrigatório'); return }
+    setSaving(true); setError('')
+    try {
+      const munPayload = {
+        name: mun.name.trim(), region: mun.region,
+        population: mun.population ? parseInt(mun.population) : null,
+        lat: mun.lat ? parseFloat(mun.lat) : null,
+        lng: mun.lng ? parseFloat(mun.lng) : null,
+      }
+      const { data: saved } = item
+        ? await axios.put<Municipality>(`/api/municipalities/${item.id}`, munPayload)
+        : await axios.post<Municipality>('/api/municipalities', munPayload)
+
+      // Upsert mayor if name provided
+      if (mayor.name.trim()) {
+        const mayorPayload = { name: mayor.name.trim(), party: mayor.party, term_start: parseInt(mayor.term_start), term_end: parseInt(mayor.term_end) }
+        if (item?.mayor) {
+          const { data: ma } = await axios.put<Mayor>(`/api/municipalities/${saved.id}/mayor`, mayorPayload)
+          saved.mayor = ma
+        } else {
+          const { data: ma } = await axios.post<Mayor>(`/api/municipalities/${saved.id}/mayor`, mayorPayload)
+          saved.mayor = ma
+        }
+      }
+      onSaved(saved); onClose()
+    } catch { setError('Erro ao salvar.') } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ maxWidth: 540 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span style={{ fontWeight: 700 }}>{item ? 'Editar Município' : 'Novo Município'}</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Município */}
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dados do Município</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px', gap: 12 }}>
+            <div>
+              <div style={labelStyle}>Nome *</div>
+              <input className="search-input" style={{ width: '100%', marginTop: 6 }} value={mun.name} onChange={e => setM('name', e.target.value)} />
+            </div>
+            <div>
+              <div style={labelStyle}>Região</div>
+              <select className="search-input" style={{ width: '100%', marginTop: 6 }} value={mun.region} onChange={e => setM('region', e.target.value)}>
+                {['Grande SP', 'Interior', 'Litoral', 'Vale do Paraíba'].map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div>
+              <div style={labelStyle}>População</div>
+              <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" value={mun.population} onChange={e => setM('population', e.target.value)} />
+            </div>
+            <div>
+              <div style={labelStyle}>Latitude</div>
+              <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" step="any" value={mun.lat} onChange={e => setM('lat', e.target.value)} placeholder="-23.5" />
+            </div>
+            <div>
+              <div style={labelStyle}>Longitude</div>
+              <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" step="any" value={mun.lng} onChange={e => setM('lng', e.target.value)} placeholder="-46.6" />
+            </div>
+          </div>
+
+          {/* Prefeito */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>Prefeito(a) {!item?.mayor ? '(opcional)' : ''}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
+              <div>
+                <div style={labelStyle}>Nome</div>
+                <input className="search-input" style={{ width: '100%', marginTop: 6 }} value={mayor.name} onChange={e => setMa('name', e.target.value)} />
+              </div>
+              <div>
+                <div style={labelStyle}>Partido</div>
+                <select className="search-input" style={{ width: '100%', marginTop: 6 }} value={mayor.party} onChange={e => setMa('party', e.target.value)}>
+                  {ALL_PARTIES.map(p => <option key={p}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+              <div>
+                <div style={labelStyle}>Início do mandato</div>
+                <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" value={mayor.term_start} onChange={e => setMa('term_start', e.target.value)} />
+              </div>
+              <div>
+                <div style={labelStyle}>Fim do mandato</div>
+                <input className="search-input" style={{ width: '100%', marginTop: 6 }} type="number" value={mayor.term_end} onChange={e => setMa('term_end', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          {error && <div style={{ color: '#f85149', fontSize: 13 }}>{error}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button style={btnGhost} onClick={onClose}>Cancelar</button>
+            <button style={btnPrimary} onClick={save} disabled={saving}>{saving ? 'Salvando...' : (item ? 'Salvar' : 'Criar')}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DeleteConfirm({ name, onClose, onConfirm }: { name: string; onClose: () => void; onConfirm: () => void }) {
+  const [loading, setLoading] = useState(false)
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span style={{ fontWeight: 700 }}>Excluir município?</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <p style={{ color: 'var(--muted)', margin: '0 0 16px', fontSize: 13 }}>{name}</p>
+        <p style={{ color: '#f85149', fontSize: 12, marginBottom: 20 }}>Esta ação não pode ser desfeita.</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button style={btnGhost} onClick={onClose}>Cancelar</button>
+          <button style={{ ...btnBase, background: '#f85149', color: '#fff' }} onClick={async () => { setLoading(true); await onConfirm() }} disabled={loading}>{loading ? 'Excluindo...' : 'Excluir'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function FlyTo({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap()
@@ -53,12 +208,29 @@ export default function Mayors() {
   const [search, setSearch] = useState('')
   const [focusCity, setFocusCity] = useState<{ lat: number; lng: number } | null>(null)
   const [highlightId, setHighlightId] = useState<number | null>(null)
+  const [modal, setModal] = useState<{ item: Municipality | null } | null>(null)
+  const [deleting, setDeleting] = useState<Municipality | null>(null)
 
   useEffect(() => {
     axios.get<Municipality[]>('/api/municipalities')
       .then(r => setMunicipalities(r.data))
       .finally(() => setLoading(false))
   }, [])
+
+  function handleSaved(m: Municipality) {
+    setMunicipalities(prev => {
+      const idx = prev.findIndex(x => x.id === m.id)
+      if (idx >= 0) { const next = [...prev]; next[idx] = m; return next }
+      return [...prev, m]
+    })
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleting) return
+    await axios.delete(`/api/municipalities/${deleting.id}`)
+    setMunicipalities(prev => prev.filter(m => m.id !== deleting.id))
+    setDeleting(null)
+  }
 
   const filtered = useMemo(() => {
     let list = municipalities
@@ -90,9 +262,12 @@ export default function Mayors() {
 
   return (
     <div>
-      <div className="page-title">Prefeitos e Municípios</div>
-      <div className="page-subtitle">
-        30 maiores municípios · Eleições 2024 · Mandato 2025–2028
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 4 }}>
+        <div>
+          <div className="page-title">Prefeitos e Municípios</div>
+          <div className="page-subtitle">30 maiores municípios · Eleições 2024 · Mandato 2025–2028</div>
+        </div>
+        <button style={btnPrimary} onClick={() => setModal({ item: null })}>+ Nova Cidade</button>
       </div>
 
       {/* KPIs */}
@@ -245,44 +420,34 @@ export default function Mayors() {
                   <th>Prefeito(a)</th>
                   <th>Partido</th>
                   <th style={{ textAlign: 'right' }}>População</th>
+                  <th style={{ width: 80 }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(mun => (
                   <tr
                     key={mun.id}
-                    onClick={() => handleSelect(mun)}
                     style={{ background: mun.id === highlightId ? 'rgba(88,166,255,0.07)' : undefined }}
                   >
-                    <td>
+                    <td onClick={() => handleSelect(mun)} style={{ cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span
-                          style={{
-                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                            background: REGION_COLORS[mun.region] ?? '#8b949e',
-                          }}
-                        />
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: REGION_COLORS[mun.region] ?? '#8b949e' }} />
                         <span style={{ fontWeight: 500 }}>{mun.name}</span>
                       </div>
                     </td>
-                    <td>
-                      <span style={{ fontSize: 12, color: REGION_COLORS[mun.region] ?? 'var(--muted)' }}>
-                        {mun.region}
-                      </span>
-                    </td>
+                    <td><span style={{ fontSize: 12, color: REGION_COLORS[mun.region] ?? 'var(--muted)' }}>{mun.region}</span></td>
                     <td>{mun.mayor?.name || '—'}</td>
                     <td>
                       {mun.mayor && (
-                        <span className="badge" style={{
-                          background: `${partyColor(mun.mayor.party)}22`,
-                          color: partyColor(mun.mayor.party),
-                        }}>
-                          {mun.mayor.party}
-                        </span>
+                        <span className="badge" style={{ background: `${partyColor(mun.mayor.party)}22`, color: partyColor(mun.mayor.party) }}>{mun.mayor.party}</span>
                       )}
                     </td>
-                    <td style={{ textAlign: 'right', fontSize: 12 }}>
-                      {formatPop(mun.population)}
+                    <td style={{ textAlign: 'right', fontSize: 12 }}>{formatPop(mun.population)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button style={{ ...btnGhost, padding: '3px 7px', fontSize: 12 }} onClick={() => setModal({ item: mun })}>✏️</button>
+                        <button style={{ ...btnDanger, padding: '3px 7px', fontSize: 12 }} onClick={() => setDeleting(mun)}>🗑️</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -298,6 +463,9 @@ export default function Mayors() {
           )}
         </div>
       )}
+
+      {modal && <MunicipalityModal item={modal.item} onClose={() => setModal(null)} onSaved={handleSaved} />}
+      {deleting && <DeleteConfirm name={deleting.name} onClose={() => setDeleting(null)} onConfirm={handleDeleteConfirm} />}
     </div>
   )
 }

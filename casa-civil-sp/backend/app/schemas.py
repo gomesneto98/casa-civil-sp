@@ -211,6 +211,80 @@ class GoalGroupUpdate(BaseModel):
     pillar: Optional[str] = None
 
 
+# --- CRUD: Secretariat ---
+class SecretariatCreate(BaseModel):
+    name: str
+    acronym: str
+    emoji: Optional[str] = None
+    secretary_name: Optional[str] = None
+    party: Optional[str] = None
+    executives: Optional[str] = None
+
+
+class SecretariatUpdate(BaseModel):
+    name: Optional[str] = None
+    acronym: Optional[str] = None
+    emoji: Optional[str] = None
+    secretary_name: Optional[str] = None
+    party: Optional[str] = None
+    executives: Optional[str] = None
+
+
+# --- CRUD: Deputy ---
+class DeputyCreate(BaseModel):
+    name: str
+    party: str
+    votes_2022: int = 0
+    registration: Optional[int] = None
+    ranking: int = 0
+    is_substitute: bool = False
+    mandates: int = 1
+    photo_url: Optional[str] = None
+
+
+class DeputyUpdate(BaseModel):
+    name: Optional[str] = None
+    party: Optional[str] = None
+    votes_2022: Optional[int] = None
+    registration: Optional[int] = None
+    ranking: Optional[int] = None
+    is_substitute: Optional[bool] = None
+    mandates: Optional[int] = None
+    photo_url: Optional[str] = None
+
+
+# --- CRUD: Mayor ---
+class MayorCreate(BaseModel):
+    name: str
+    party: str
+    term_start: int = 2021
+    term_end: int = 2024
+
+
+class MayorUpdate(BaseModel):
+    name: Optional[str] = None
+    party: Optional[str] = None
+    term_start: Optional[int] = None
+    term_end: Optional[int] = None
+
+
+# --- CRUD: Municipality ---
+class MunicipalityCreate(BaseModel):
+    name: str
+    region: str
+    population: Optional[int] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+class MunicipalityUpdate(BaseModel):
+    name: Optional[str] = None
+    region: Optional[str] = None
+    population: Optional[int] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
 # --- Dashboard ---
 class DashboardSummary(BaseModel):
     total_deputies: int
