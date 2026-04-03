@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import deputies, municipalities, secretariats, programs, dashboard
+from app.routers import deputies, municipalities, secretariats, programs, dashboard, metas
 
 app = FastAPI(
     title="Casa Civil SP API",
@@ -22,6 +22,7 @@ app.include_router(municipalities.router)
 app.include_router(secretariats.router)
 app.include_router(programs.router)
 app.include_router(dashboard.router)
+app.include_router(metas.router)
 
 
 @app.get("/api/health")

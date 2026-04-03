@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { to: '/secretarias', label: 'Secretarias', icon: '📁' },
   { to: '/prefeitos', label: 'Prefeitos', icon: '🏙️' },
   { to: '/programas', label: 'Programas', icon: '📋' },
+  { to: '/metas', label: 'Programa de Metas', icon: '🎯' },
 ]
 
 interface SidebarProps {

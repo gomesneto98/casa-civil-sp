@@ -74,6 +74,7 @@ class Secretariat(Base):
     executives = Column(String, nullable=True)  # semicolon-separated "Nome|Partido"
 
     budget_items = relationship("BudgetItem", back_populates="secretariat")
+    metas = relationship("Meta", back_populates="secretariat")
 
 
 class BudgetItem(Base):
@@ -106,3 +107,50 @@ class Program(Base):
     status = Column(String, nullable=False, default="ativo")
 
     budget_items = relationship("BudgetItem", back_populates="program")
+
+
+# ── Programa de Metas (Governo Tarcísio 2023-2026) ─────────────────────────
+
+class GoalGroup(Base):
+    """Dimensão: 12 Objetivos do Programa de Metas, agrupados por um dos 3 Eixos."""
+    __tablename__ = "goal_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    number = Column(Integer, nullable=False)           # 1-12
+    name = Column(String, nullable=False)              # nome do objetivo
+    pillar = Column(String, nullable=False)            # Dignidade / Desenvolvimento / Diálogo
+
+    metas = relationship("Meta", back_populates="goal_group")
+
+
+class Meta(Base):
+    """Fato+Dimensão: cada uma das 260 Metas com dados de execução (planejado x realizado)."""
+    __tablename__ = "metas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, nullable=False)              # ex: "1.1", "3.4"
+    description = Column(String, nullable=False)       # texto da meta
+    goal_group_id = Column(Integer, ForeignKey("goal_groups.id"), nullable=False)
+    secretariat_id = Column(Integer, ForeignKey("secretariats.id"), nullable=True)
+
+    # Dimensão Programa de Metas
+    priority = Column(String, nullable=False, default="B")  # A, B ou C
+    status = Column(String, nullable=False)                 # Em andamento, Em alerta, Atrasado, Alcançado, Evento a confirmar
+
+    # Flags / visões especiais
+    flag_100_dias = Column(Boolean, default=False)
+    flag_estadao = Column(Boolean, default=False)
+    flag_folha = Column(Boolean, default=False)
+    flag_interior = Column(Boolean, default=False)
+    flag_capital = Column(Boolean, default=False)
+    flag_infraestrutura = Column(Boolean, default=False)
+
+    # Execução (planejado x realizado)
+    planned_value = Column(Float, nullable=True)        # valor planejado
+    actual_value = Column(Float, nullable=True)         # valor realizado
+    unit = Column(String, nullable=True)                # ex: "unidades", "km", "%", "R$ bi"
+    planned_date = Column(String, nullable=True)        # data prevista de conclusão (ex: "2026-12")
+    progress_pct = Column(Float, nullable=True)         # % de conclusão
+
+    goal_group = relationship("GoalGroup", back_populates="metas")
+    secretariat = relationship("Secretariat", back_populates="metas")

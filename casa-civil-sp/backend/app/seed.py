@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import engine, SessionLocal
-from app.models import Base, Deputy, Municipality, Mayor, Amendment, Secretariat, BudgetItem, Program
+from app.models import Base, Deputy, Municipality, Mayor, Amendment, Secretariat, BudgetItem, Program, GoalGroup, Meta
 
 # ---------------------------------------------------------------------------
 # Raw data — ALESP 35ª Legislatura (2023-2027)
@@ -364,6 +364,411 @@ AMENDMENT_DESCRIPTIONS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Programa de Metas — dados simulados baseados no monitoramento2023.sp.gov.br
+# 260 metas | 12 objetivos | 3 eixos | prioridade A/B/C
+# Status real extraído do screenshot: Em andamento=151, Em alerta=30,
+#   Atrasado=28, Alcançado=10, Evento a confirmar=41
+# ---------------------------------------------------------------------------
+
+# Eixos (Pillars)
+PILLAR_DIGNIDADE = "Dignidade e Comprometimento"
+PILLAR_DESENVOLVIMENTO = "Desenvolvimento e Técnica"
+PILLAR_DIALOGO = "Diálogo e Inovação"
+
+# 12 Goal Groups: (number, name, pillar, n_metas, n_em_andamento, n_alerta, n_atrasado, n_alcancado, n_evento)
+# Counts extraídos do screenshot
+GOAL_GROUPS_DATA = [
+    (1, "Educação Pública com Efetividade, Qualidade e Acesso Ampliados", PILLAR_DIGNIDADE,
+     12, 12, 0, 0, 0, 0),
+    (2, "Saúde Pública com Maior Acesso, Qualidade, Resolutividade e Tecnologia", PILLAR_DIGNIDADE,
+     11, 9, 1, 1, 0, 0),
+    (3, "Segurança Pública Fortalecida e Integrada para uma Sociedade Protegida", PILLAR_DIGNIDADE,
+     31, 18, 4, 1, 2, 6),
+    (4, "Menor Vulnerabilidade Social, com Redução da Pobreza e de Pessoas em Situação de Rua", PILLAR_DIGNIDADE,
+     11, 9, 1, 1, 0, 0),
+    (5, "Infraestrutura e Mobilidade Urbana Expandidas", PILLAR_DESENVOLVIMENTO,
+     46, 12, 11, 15, 4, 4),
+    (6, "Moradia Digna com Expansão da Regularização Fundiária, Revitalização e Reurbanização", PILLAR_DESENVOLVIMENTO,
+     5, 1, 1, 3, 0, 0),
+    (7, "Meio Ambiente e Recursos Naturais Preservados, com Garantia de Integridade e Equilíbrio", PILLAR_DESENVOLVIMENTO,
+     28, 13, 3, 12, 0, 0),
+    (8, "Setor Produtivo Competitivo e Empreendedorismo Fortalecido", PILLAR_DIALOGO,
+     33, 27, 2, 2, 2, 0),
+    (9, "Agronegócio com Produção Diversificada e Atrelado à Sustentabilidade", PILLAR_DIALOGO,
+     13, 10, 3, 0, 0, 0),
+    (10, "Turismo, Esporte, Cultura e Economia Criativa Aliados ao Desenvolvimento e ao Futuro", PILLAR_DIALOGO,
+     29, 20, 3, 1, 5, 0),
+    (11, "Governo Digital, Transparente, Ético, Técnico e Focado na Excelência dos Serviços", PILLAR_DIALOGO,
+     34, 16, 2, 7, 4, 5),  # corrigido: 16+2+7+4+5=34
+    (12, "Política Fiscal e Tributária com Disciplina, Equilíbrio e Eficiência", PILLAR_DIALOGO,
+     7, 4, 0, 1, 1, 1),  # restante para totalizar 260
+]
+
+# Mapeamento objetivo → secretaria-index (1-based dos SECRETARIATS_DATA)
+# SEDUC=1 SES=2 SSP=3 SEDS=4 SEMIL=5 SEHAB=6 SEMIL=7/5 SDE=8 SAA=9 SEC=10 SG=11/20 SEFAZ=12
+OBJ_TO_SEC = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 5, 8: 8, 9: 9, 10: 10, 11: 20, 12: 4}
+
+# Templates de meta por objetivo (descrições realistas)
+META_TEMPLATES = {
+    1: [  # Educação
+        ("Ampliar o número de matrículas na educação integral", "unidades", 500000, 487000, "2026-12", "A"),
+        ("Construir e reformar escolas estaduais", "unidades", 400, 312, "2026-06", "A"),
+        ("Implementar sistema de avaliação de aprendizagem", "%", 100, 95, "2025-12", "B"),
+        ("Reduzir o abandono escolar no ensino médio", "%", 10, 8.5, "2026-12", "A"),
+        ("Capacitar professores em metodologias ativas", "profissionais", 80000, 71000, "2026-06", "B"),
+        ("Expandir acesso a tecnologia nas escolas públicas", "unidades", 1200, 980, "2026-12", "A"),
+        ("Aumentar índice IDESP no ensino fundamental", "índice", 4.5, 4.2, "2026-12", "B"),
+        ("Implantar centros de formação profissional", "unidades", 30, 22, "2025-12", "B"),
+        ("Garantir material didático a todos os alunos", "%", 100, 98, "2025-03", "A"),
+        ("Expandir programa de alimentação escolar saudável", "escolas", 5000, 4800, "2025-12", "C"),
+        ("Criar salas de recursos multifuncionais inclusivas", "unidades", 500, 430, "2026-06", "B"),
+        ("Implementar jornada integral nas CEIs municipais", "CEIs", 200, 195, "2026-12", "B"),
+    ],
+    2: [  # Saúde
+        ("Ampliar cobertura de atenção básica à saúde", "%", 95, 89, "2026-12", "A"),
+        ("Reduzir filas de espera em procedimentos eletivos", "%", 30, 22, "2026-06", "A"),
+        ("Construir e modernizar UPAs no estado", "unidades", 45, 38, "2026-12", "A"),
+        ("Expandir vacinação infantil acima de 95%", "%", 95, 93, "2025-12", "A"),
+        ("Implementar prontuário eletrônico unificado", "%", 100, 87, "2026-06", "B"),
+        ("Ampliar serviços de saúde mental", "CAPS", 50, 41, "2026-12", "B"),
+        ("Reduzir mortalidade materna no estado", "coeficiente", 35, 38, "2026-12", "A"),
+        ("Aumentar transplantes de órgãos", "unidades", 5000, 4680, "2026-12", "B"),
+        ("Ampliar cobertura de saúde bucal", "equipes", 2000, 1850, "2026-06", "B"),
+        ("Fortalecer vigilância epidemiológica", "%", 100, 91, "2025-12", "B"),
+        ("Expandir diagnóstico precoce de câncer", "exames", 200000, 185000, "2026-12", "A"),
+    ],
+    3: [  # Segurança
+        ("Reduzir índice de homicídios no estado", "%", 20, 14, "2026-12", "A"),
+        ("Integrar dados de inteligência das forças de segurança", "%", 100, 78, "2025-12", "A"),
+        ("Ampliar monitoramento eletrônico de presos", "unidades", 20000, 17400, "2026-06", "A"),
+        ("Construir novas unidades prisionais", "vagas", 8000, 5200, "2026-12", "B"),
+        ("Implantar câmeras de vigilância inteligente", "câmeras", 10000, 7800, "2026-06", "B"),
+        ("Reduzir crimes patrimoniais na capital", "%", 15, 9, "2026-12", "A"),
+        ("Expandir policiamento comunitário", "batalhões", 30, 24, "2025-12", "B"),
+        ("Modernizar armamento e viaturas da PM", "%", 100, 82, "2026-06", "A"),
+        ("Implementar videomonitoramento integrado SINESP", "%", 100, 72, "2026-12", "B"),
+        ("Reduzir letalidade policial", "%", 30, 18, "2026-12", "A"),
+        ("Ampliar serviços de mediação de conflitos", "centros", 20, 14, "2025-12", "C"),
+        ("Fortalecer combate ao crime organizado", "operações", 500, 412, "2026-12", "A"),
+        ("Implantar sistema biométrico nas penitenciárias", "%", 100, 68, "2026-06", "B"),
+        ("Ampliar ressocialização com educação em presídios", "%", 40, 28, "2026-12", "B"),
+        ("Reduzir reincidência criminal", "%", 10, 6, "2026-12", "B"),
+        ("Criar delegacias especializadas em crimes digitais", "unidades", 15, 9, "2025-12", "B"),
+        ("Ampliar investigação de crimes ambientais", "delegacias", 10, 7, "2026-12", "C"),
+        ("Implementar central de monitoramento 24h", "centrais", 5, 4, "2025-06", "A"),
+        ("Expandir guarda civil metropolitana", "agentes", 5000, 3800, "2026-12", "B"),
+        ("Integrar banco de dados de mandados de prisão", "%", 100, 84, "2025-12", "A"),
+        ("Fortalecer policiamento nas fronteiras estaduais", "postos", 20, 15, "2026-06", "B"),
+        ("Ampliar combate ao trabalho escravo", "fiscalizações", 200, 162, "2026-12", "B"),
+        ("Instalar sistemas antidrone em presídios", "unidades", 50, 29, "2026-06", "A"),
+        ("Reduzir suicídio entre servidores PM/PC", "%", 20, 9, "2026-12", "C"),
+        ("Criar centro de inteligência policial SP", "centros", 1, 1, "2024-06", "A"),
+        ("Modernizar IML e perícias oficiais", "unidades", 20, 14, "2026-12", "B"),
+        ("Implantar boletim de ocorrência online 24h", "%", 100, 92, "2024-12", "A"),
+        ("Ampliar proteção às mulheres vítimas de violência", "casas-abrigo", 30, 22, "2026-12", "A"),
+        ("Fortalecer Conselho de Segurança públicos locais", "conselhos", 200, 145, "2025-12", "C"),
+        ("Expandir rede de proteção à criança e adolescente", "centros", 25, 17, "2026-06", "B"),
+        ("Instalar câmeras em uniformes (body cam) PM", "unidades", 20000, 12000, "2026-12", "A"),
+    ],
+    4: [  # Vulnerabilidade Social
+        ("Ampliar transferência de renda a famílias vulneráveis", "famílias", 300000, 278000, "2026-12", "A"),
+        ("Erradicar situação de rua na capital", "%", 50, 28, "2026-12", "A"),
+        ("Construir centros de acolhimento para moradores de rua", "vagas", 5000, 3800, "2026-12", "A"),
+        ("Ampliar cobertura do SUAS no estado", "%", 95, 89, "2025-12", "B"),
+        ("Fortalecer rede de proteção a idosos", "centros", 100, 82, "2026-06", "B"),
+        ("Ampliar serviços de apoio a crianças vulneráveis", "CRAS", 50, 42, "2025-12", "A"),
+        ("Reduzir trabalho infantil no estado", "%", 30, 21, "2026-12", "B"),
+        ("Implementar sistema de busca ativa de beneficiários", "%", 100, 87, "2025-12", "A"),
+        ("Expandir acesso à assistência social em municípios", "municípios", 600, 548, "2025-12", "B"),
+        ("Fortalecer proteção à pessoa com deficiência", "beneficiários", 50000, 44000, "2026-12", "B"),
+        ("Ampliar banco de alimentos e combate ao desperdício", "toneladas", 5000, 4200, "2026-12", "C"),
+    ],
+    5: [  # Infraestrutura
+        ("Duplicar rodovias estaduais prioritárias", "km", 500, 198, "2026-12", "A"),
+        ("Conservar malha rodoviária estadual", "km", 15000, 12800, "2025-12", "A"),
+        ("Ampliar capacidade dos aeroportos regionais", "passageiros/ano", 5000000, 3200000, "2026-12", "B"),
+        ("Expandir metro na RMSP — Linha 2 Verde", "km", 14, 6, "2027-06", "A"),
+        ("Expandir metro na RMSP — Linha 6 Laranja", "km", 15, 8, "2027-12", "A"),
+        ("Entregar obras do VLT — Linha 18 Bronze", "km", 13, 2, "2028-12", "A"),
+        ("Ampliar Trem Intercidades SP-Campinas", "km", 180, 0, "2028-12", "A"),
+        ("Recuperar pontes e viadutos em risco", "unidades", 200, 142, "2026-06", "A"),
+        ("Ampliar acesso à internet banda larga no interior", "municípios", 400, 280, "2026-12", "B"),
+        ("Expandir rede de ciclovias integradas ao metro", "km", 200, 128, "2025-12", "B"),
+        ("Implantar corredor de BRT prioritário", "km", 80, 31, "2026-12", "A"),
+        ("Ampliar saneamento básico em municípios", "municípios", 200, 148, "2026-12", "A"),
+        ("Universalizar tratamento de esgoto no estado", "%", 100, 82, "2026-12", "A"),
+        ("Ampliar abastecimento d'água em baixada santista", "%", 100, 89, "2025-12", "A"),
+        ("Construir novas barragens de contenção de cheias", "unidades", 10, 3, "2028-12", "B"),
+        ("Readequar terminais rodoviários intermunicipais", "terminais", 50, 32, "2026-06", "B"),
+        ("Concluir rodoanel trecho norte", "km", 45, 8, "2028-12", "A"),
+        ("Ampliar capacidade portuária em Santos", "%", 30, 12, "2028-12", "A"),
+        ("Instalar iluminação LED nas rodovias estaduais", "km", 3000, 1920, "2025-12", "B"),
+        ("Implantar pesagem virtual de caminhões", "postos", 40, 28, "2025-06", "B"),
+        ("Recuperar estradas vicinais no interior", "km", 5000, 3400, "2026-06", "B"),
+        ("Ampliar parque tecnológico em São José dos Campos", "%", 100, 48, "2026-12", "B"),
+        ("Completar obras do Contorno de Ribeirão Preto", "km", 25, 7, "2027-06", "A"),
+        ("Implantar sistema de pedágio por km rodado", "praças", 50, 12, "2027-12", "B"),
+        ("Ampliar capacidade de energia renovável no estado", "GW", 2, 0.8, "2026-12", "B"),
+        ("Digitalizar plantas de infraestrutura hídrica", "%", 100, 62, "2025-12", "C"),
+        ("Instalar semáforos inteligentes na capital", "cruzamentos", 1000, 580, "2025-12", "B"),
+        ("Ampliar faixas expressas dinâmicas na Marginal", "km", 20, 8, "2025-06", "B"),
+        ("Recuperar patrimônio histórico de infraestrutura", "bens", 30, 18, "2026-12", "C"),
+        ("Ampliar conectividade 5G em municípios do interior", "municípios", 100, 42, "2026-12", "B"),
+        ("Implantar centro de controle operacional ferroviário", "unidades", 1, 0, "2027-12", "A"),
+        ("Expandir rede de carregamento de veículos elétricos", "pontos", 500, 180, "2026-12", "B"),
+        ("Modernizar gestão hídrica com IoT", "%", 100, 38, "2026-12", "B"),
+        ("Ampliar estações de tratamento de resíduos sólidos", "unidades", 20, 8, "2027-06", "B"),
+        ("Concluir construção do Arco Metropolitano de SP", "km", 100, 14, "2028-12", "A"),
+        ("Implantar sistema de travessias seguras em rodovias", "travessias", 300, 198, "2025-12", "B"),
+        ("Digitalizar processos de licenciamento de obras", "%", 100, 74, "2025-06", "C"),
+        ("Ampliar dragagem de rios e córregos na RMSP", "km", 200, 98, "2026-06", "A"),
+        ("Implementar gestão de ativos rodoviários", "km", 20000, 8400, "2026-12", "B"),
+        ("Ampliar programa de manutenção preventiva de pontes", "pontes", 500, 320, "2025-12", "B"),
+        ("Expandir rede de terminais intermodais", "terminais", 15, 4, "2027-12", "B"),
+        ("Concluir duplicação SP-055 (Rodovia dos Imigrantes)", "km", 30, 8, "2027-06", "A"),
+        ("Implantar sistema de gestão de frotas oficiais", "%", 100, 68, "2025-12", "C"),
+        ("Ampliar acesso à mobilidade em cidades médias", "cidades", 30, 18, "2026-12", "B"),
+        ("Modernizar centros de controle de tráfego", "CCOs", 10, 6, "2025-12", "B"),
+        ("Ampliar programa de conservação de pontes rurais", "pontes", 200, 124, "2025-06", "C"),
+    ],
+    6: [  # Moradia
+        ("Construir unidades habitacionais de interesse social", "unidades", 30000, 8400, "2026-12", "A"),
+        ("Regularizar assentamentos precários", "famílias", 50000, 19000, "2026-12", "A"),
+        ("Urbanizar favelas em áreas de risco", "m²", 500000, 145000, "2026-12", "A"),
+        ("Ampliar crédito habitacional popular", "contratos", 10000, 3800, "2026-06", "B"),
+        ("Implementar programa de locação social", "unidades", 5000, 1200, "2026-12", "A"),
+    ],
+    7: [  # Meio Ambiente
+        ("Reduzir desmatamento ilegal no estado", "%", 30, 12, "2026-12", "A"),
+        ("Ampliar unidade de conservação ambiental", "ha", 50000, 18000, "2026-12", "B"),
+        ("Recuperar áreas degradadas e matas ciliares", "ha", 10000, 3800, "2026-12", "B"),
+        ("Expandir coleta seletiva de resíduos", "municípios", 500, 328, "2025-12", "B"),
+        ("Reduzir emissão de GEE no setor de transporte", "%", 15, 6, "2026-12", "A"),
+        ("Ampliar parques estaduais abertos à visitação", "parques", 20, 12, "2025-12", "B"),
+        ("Implementar política estadual de carbono neutro", "%", 100, 42, "2026-12", "A"),
+        ("Recuperar praias e rios com qualidade de banho", "%", 80, 58, "2026-12", "B"),
+        ("Ampliar programas de educação ambiental", "municípios", 400, 248, "2025-12", "C"),
+        ("Criar corredores ecológicos na Mata Atlântica", "km²", 200, 68, "2026-12", "A"),
+        ("Reduzir queimadas no cerrado paulista", "%", 40, 15, "2026-12", "A"),
+        ("Digitalizar licenciamento ambiental", "%", 100, 78, "2025-06", "B"),
+        ("Ampliar reator de biogás em aterros", "unidades", 10, 3, "2027-06", "B"),
+        ("Implementar sistema de monitoramento hídrico online", "%", 100, 48, "2026-06", "B"),
+        ("Expandir áreas verdes em municípios do interior", "ha", 5000, 1980, "2026-12", "C"),
+        ("Cadastrar nascentes no estado", "nascentes", 5000, 2100, "2025-12", "B"),
+        ("Ampliar controle de poluição atmosférica na RMSP", "%", 20, 8, "2026-12", "A"),
+        ("Desenvolver plano diretor de recursos hídricos", "%", 100, 62, "2025-12", "B"),
+        ("Fortalecer fiscalização ambiental com drones", "equipes", 30, 14, "2025-12", "B"),
+        ("Implantar ecopontos nos municípios do interior", "unidades", 200, 85, "2026-06", "C"),
+        ("Ampliar gestão sustentável de resíduos industriais", "%", 80, 34, "2026-12", "B"),
+        ("Recuperar rios degradados na bacia do Paraíba", "km", 100, 38, "2026-12", "A"),
+        ("Reduzir poluição sonora nos centros urbanos", "%", 15, 5, "2026-12", "C"),
+        ("Criar banco de sementes de espécies nativas", "espécies", 500, 210, "2026-12", "B"),
+        ("Ampliar transição energética em secretarias", "%", 30, 9, "2026-12", "C"),
+        ("Fortalecer consórcios intermunicipais de resíduos", "consórcios", 30, 12, "2026-06", "B"),
+        ("Implementar sistema de qualidade da água em tempo real", "estações", 100, 48, "2025-12", "B"),
+        ("Ampliar reflorestamento com espécies nativas", "mudas", 10000000, 4200000, "2026-12", "A"),
+    ],
+    8: [  # Setor Produtivo
+        ("Atrair novos investimentos produtivos para o estado", "R$ bi", 50, 38, "2026-12", "A"),
+        ("Reduzir burocracia para abertura de empresas", "dias", 1, 1, "2023-12", "A"),
+        ("Ampliar acesso a crédito para MPMEs", "empresas", 100000, 87000, "2026-12", "A"),
+        ("Expandir hubs de inovação no estado", "hubs", 20, 14, "2025-12", "B"),
+        ("Aumentar exportações do agronegócio paulista", "%", 15, 10, "2026-12", "A"),
+        ("Qualificar mão de obra para setores estratégicos", "pessoas", 300000, 248000, "2026-06", "A"),
+        ("Implantar zonas de processamento export no interior", "ZPE", 3, 1, "2027-12", "B"),
+        ("Ampliar parques industriais sustentáveis", "unidades", 10, 7, "2026-12", "B"),
+        ("Fortalecer cadeias produtivas locais", "cadeias", 20, 16, "2025-12", "B"),
+        ("Digitalizar processos de fiscalização tributária", "%", 100, 82, "2025-12", "B"),
+        ("Atrair empresas de tecnologia para SP", "empresas", 200, 148, "2026-12", "A"),
+        ("Implementar programa de internacionalização de empresas", "empresas", 500, 380, "2026-12", "B"),
+        ("Ampliar programa Investe SP de simplificação", "%", 100, 78, "2025-12", "B"),
+        ("Reduzir ICMS para setores estratégicos", "setores", 5, 4, "2024-12", "A"),
+        ("Expandir economia circular no setor industrial", "%", 20, 14, "2026-12", "B"),
+        ("Fortalecer cooperativismo e associativismo", "cooperativas", 200, 148, "2025-12", "C"),
+        ("Ampliar microcrédito a empreendedores individuais", "MEIs", 50000, 41000, "2025-12", "B"),
+        ("Criar programa estadual de startups", "startups", 100, 74, "2025-12", "B"),
+        ("Expandir feiras de negócios internacionais", "eventos", 10, 8, "2026-12", "C"),
+        ("Digitalizar câmaras de comércio no estado", "%", 100, 84, "2025-06", "C"),
+        ("Ampliar infraestrutura de inovação nas universidades", "laboratórios", 30, 22, "2026-12", "B"),
+        ("Estabelecer centro de arbitragem empresarial", "centros", 5, 4, "2024-12", "B"),
+        ("Criar fundo de investimento em inovação SP", "R$ mi", 500, 420, "2026-12", "A"),
+        ("Fortalecer arranjos produtivos locais", "APLs", 30, 24, "2025-12", "B"),
+        ("Ampliar e-commerce para pequenos negócios", "empresas", 20000, 16000, "2025-12", "C"),
+        ("Implementar certificação para economia verde", "empresas", 500, 320, "2026-12", "B"),
+        ("Expandir energia para distritos industriais", "MWh", 500, 380, "2025-12", "A"),
+        ("Criar central de inteligência de mercados", "unidades", 1, 1, "2024-06", "B"),
+        ("Ampliar inclusão produtiva de jovens vulneráveis", "jovens", 50000, 38000, "2026-12", "A"),
+        ("Fortalecer programa de qualificação industrial", "trabalhadores", 100000, 78000, "2025-12", "A"),
+        ("Modernizar sistema de registros empresariais", "%", 100, 88, "2024-12", "B"),
+        ("Criar selos de qualidade para produtos paulistas", "produtos", 50, 38, "2025-12", "C"),
+        ("Ampliar acesso ao comércio nas periferias", "centros", 20, 14, "2026-12", "C"),
+    ],
+    9: [  # Agronegócio
+        ("Ampliar irrigação em lavouras do interior", "ha", 100000, 78000, "2026-12", "A"),
+        ("Certificar produtores rurais em boas práticas", "produtores", 50000, 41000, "2025-12", "B"),
+        ("Expandir programa de crédito rural", "contratos", 30000, 25000, "2026-12", "A"),
+        ("Ampliar pesquisa agropecuária no IAC e APTA", "%", 30, 22, "2026-12", "B"),
+        ("Reduzir perdas pós-colheita no estado", "%", 20, 14, "2026-12", "B"),
+        ("Digitalizar cadastro de propriedades rurais", "%", 100, 78, "2025-12", "B"),
+        ("Ampliar rastreabilidade da carne bovina paulista", "%", 80, 62, "2026-06", "A"),
+        ("Fortalecer sistemas de defesa agropecuária", "laboratórios", 10, 7, "2025-12", "B"),
+        ("Expandir agricultura familiar certificada", "famílias", 20000, 16000, "2026-12", "A"),
+        ("Ampliar acesso à água para o agro no semiárido paulista", "cisternas", 5000, 3800, "2025-12", "B"),
+        ("Criar centro de excelência em agrotech", "centros", 3, 2, "2026-06", "A"),
+        ("Fortalecer mercados orgânicos certificados", "produtores", 10000, 7800, "2026-12", "B"),
+        ("Implementar monitoramento por satélite de lavouras", "%", 100, 68, "2026-12", "B"),
+    ],
+    10: [  # Turismo, Esporte, Cultura
+        ("Aumentar turistas internacionais no estado", "milhões", 5, 3.8, "2026-12", "A"),
+        ("Ampliar roteiros turísticos regionais certificados", "roteiros", 100, 72, "2025-12", "B"),
+        ("Construir e reformar equipamentos esportivos", "unidades", 200, 148, "2026-12", "B"),
+        ("Ampliar projetos culturais em municípios", "projetos", 500, 380, "2025-12", "B"),
+        ("Restaurar patrimônio histórico tombado", "bens", 50, 38, "2026-12", "B"),
+        ("Expandir Lei Paulo Gustavo — fomento cultural", "projetos", 1000, 920, "2024-12", "A"),
+        ("Ampliar programas esportivos para jovens", "participantes", 500000, 420000, "2025-12", "A"),
+        ("Criar centro de excelência esportiva", "centros", 5, 4, "2026-12", "B"),
+        ("Fortalecer economia criativa no estado", "empresas", 2000, 1620, "2026-12", "B"),
+        ("Ampliar festivais e eventos culturais", "eventos", 100, 82, "2025-12", "C"),
+        ("Digitalizar acervos museológicos", "%", 100, 74, "2025-12", "B"),
+        ("Expandir programas de leitura nas escolas", "alunos", 1000000, 820000, "2025-12", "A"),
+        ("Fortalecer cinema e audiovisual paulista", "produções", 100, 78, "2026-12", "B"),
+        ("Ampliar turismo de negócios em SP capital", "%", 20, 16, "2026-12", "B"),
+        ("Criar museus interativos de ciência", "unidades", 5, 4, "2026-12", "B"),
+        ("Expandir acesso à banda larga em pontos turísticos", "pontos", 200, 148, "2025-12", "C"),
+        ("Ampliar programa de microcrédito para artistas", "artistas", 5000, 3800, "2025-12", "C"),
+        ("Implantar tour virtual de patrimônios estaduais", "patrimônios", 50, 38, "2025-12", "C"),
+        ("Fortalecer escolas públicas de artes e esportes", "escolas", 30, 24, "2026-12", "B"),
+        ("Ampliar espaços de prática de esportes nas periferias", "espaços", 100, 80, "2026-06", "A"),
+        ("Criar programa de artistas residentes", "artistas", 200, 148, "2025-12", "C"),
+        ("Expandir museus regionais no interior", "museus", 10, 8, "2026-12", "B"),
+        ("Ampliar financiamento do patrimônio cultural", "projetos", 200, 148, "2026-12", "B"),
+        ("Fortalecer turismo comunitário e indígena", "comunidades", 30, 20, "2025-12", "C"),
+        ("Realizar candidatura de SP para eventos olímpicos", "candidaturas", 1, 1, "2024-12", "A"),
+        ("Ampliar publicidade do turismo paulista no exterior", "%", 50, 38, "2026-12", "B"),
+        ("Criar fundo estadual de apoio ao cinema", "R$ mi", 50, 42, "2025-12", "B"),
+        ("Fortalecer museus comunitários", "museus", 20, 14, "2026-12", "C"),
+        ("Ampliar programa de sarau e cultura nas escolas", "escolas", 500, 380, "2025-12", "C"),
+    ],
+    11: [  # Governo Digital
+        ("Digitalizar 100% de serviços ao cidadão", "%", 100, 74, "2026-12", "A"),
+        ("Implantar identidade digital estadual", "usuários", 20000000, 14800000, "2025-12", "A"),
+        ("Ampliar conectividade nos prédios públicos", "%", 100, 82, "2025-06", "B"),
+        ("Implementar plataforma integrada de dados gov", "%", 100, 52, "2026-12", "A"),
+        ("Criar lei estadual de proteção de dados LGPD", "%", 100, 100, "2023-06", "A"),
+        ("Ampliar transparência nos contratos públicos", "%", 100, 88, "2024-12", "A"),
+        ("Modernizar sistemas legados das secretarias", "%", 60, 28, "2026-12", "B"),
+        ("Implementar IA em atendimento ao cidadão", "%", 100, 48, "2026-12", "B"),
+        ("Criar centro de dados gov. soberano", "centros", 1, 0, "2027-06", "A"),
+        ("Digitalizar processos de licitação", "%", 100, 84, "2025-06", "A"),
+        ("Ampliar uso de open data no governo SP", "datasets", 1000, 620, "2026-12", "B"),
+        ("Implantar assinatura digital em todos os atos", "%", 100, 92, "2024-12", "A"),
+        ("Expandir rede de wi-fi gratuito em pontos públicos", "pontos", 1000, 580, "2026-06", "B"),
+        ("Criar programa de formação em tecnologia para servidores", "servidores", 30000, 21000, "2025-12", "B"),
+        ("Ampliar avaliação de desempenho de servidores", "%", 100, 72, "2025-12", "B"),
+        ("Implementar ouvidoria digital integrada", "%", 100, 84, "2024-12", "A"),
+        ("Reduzir tempo médio de atendimento gov", "dias", 5, 7, "2025-12", "A"),
+        ("Criar programa anti-corrupção digital", "%", 100, 68, "2025-12", "A"),
+        ("Ampliar auditoria digital de gastos públicos", "%", 100, 78, "2026-06", "B"),
+        ("Digitalizar acervos históricos do estado", "%", 100, 48, "2026-12", "C"),
+        ("Implementar GovTech incubadora no estado", "startups", 50, 34, "2025-12", "B"),
+        ("Criar portal unificado de licitações SP", "%", 100, 92, "2024-06", "A"),
+        ("Implantar sistema de gestão de talentos no governo", "%", 100, 58, "2026-12", "B"),
+        ("Ampliar blockchain em registros públicos", "%", 30, 12, "2026-12", "B"),
+        ("Desenvolver app único de serviços SP ao cidadão", "downloads", 5000000, 3800000, "2025-12", "A"),
+        ("Fortalecer cibersegurança em infraestrutura crítica", "%", 100, 62, "2026-12", "A"),
+        ("Ampliar uso de análise de dados para políticas públicas", "%", 70, 38, "2026-12", "B"),
+        ("Criar programa de inclusão digital para idosos", "idosos", 500000, 320000, "2026-12", "B"),
+        ("Implantar sistema de gestão de contratos Gov", "%", 100, 74, "2025-12", "B"),
+        ("Expandir acesso a documentos cidadão via app", "%", 100, 88, "2024-12", "A"),
+        ("Fortalecer ética e integridade no servidor público", "capacitados", 50000, 36000, "2025-12", "B"),
+        ("Ampliar dados abertos na saúde e segurança", "datasets", 200, 148, "2025-12", "B"),
+        ("Criar plataforma de participação cidadã online", "usuários", 500000, 280000, "2025-12", "B"),
+        ("Implementar gestão por resultados no governo SP", "%", 100, 58, "2026-12", "A"),
+    ],
+    12: [  # Política Fiscal
+        ("Reduzir dívida consolidada do estado SP", "%", 10, 6, "2026-12", "A"),
+        ("Ampliar eficiência do sistema de arrecadação", "%", 15, 10, "2025-12", "A"),
+        ("Modernizar o sistema tributário paulista", "%", 100, 68, "2026-12", "A"),
+        ("Equilibrar resultado primário das contas públicas", "R$ bi superavit", 5, 3.8, "2026-12", "A"),
+        ("Ampliar transparência fiscal municipal", "%", 100, 78, "2025-12", "B"),
+        ("Reduzir contencioso tributário em 20%", "%", 20, 12, "2026-12", "B"),
+        ("Implementar reforma da previdência estadual", "%", 100, 84, "2024-12", "A"),
+    ],
+}
+
+# flags realistas por objetivo
+FLAGS_BY_OBJ = {
+    1: {"100d": True, "est": True, "folha": True, "int": False, "cap": True, "infra": False},
+    2: {"100d": True, "est": True, "folha": False, "int": True, "cap": True, "infra": False},
+    3: {"100d": True, "est": True, "folha": True, "int": True, "cap": True, "infra": False},
+    4: {"100d": False, "est": False, "folha": True, "int": True, "cap": True, "infra": False},
+    5: {"100d": False, "est": True, "folha": True, "int": True, "cap": False, "infra": True},
+    6: {"100d": False, "est": True, "folha": False, "int": False, "cap": True, "infra": True},
+    7: {"100d": False, "est": False, "folha": True, "int": True, "cap": False, "infra": False},
+    8: {"100d": False, "est": True, "folha": False, "int": True, "cap": False, "infra": False},
+    9: {"100d": False, "est": False, "folha": False, "int": True, "cap": False, "infra": False},
+    10: {"100d": False, "est": False, "folha": False, "int": True, "cap": True, "infra": False},
+    11: {"100d": True, "est": True, "folha": False, "int": False, "cap": True, "infra": False},
+    12: {"100d": False, "est": True, "folha": True, "int": False, "cap": True, "infra": False},
+}
+
+STATUS_LIST = [
+    "Em andamento", "Em andamento", "Em andamento", "Em andamento",
+    "Em alerta", "Atrasado", "Alcançado", "Evento a confirmar",
+]
+
+
+def _seed_metas(db: Session, secretariats: list):
+    """Popula goal_groups e metas com dados simulados realistas."""
+    groups = []
+    for (num, name, pillar, n_meta, n_and, n_ale, n_atra, n_alc, n_eve) in GOAL_GROUPS_DATA:
+        g = GoalGroup(number=num, name=name, pillar=pillar)
+        db.add(g)
+        groups.append((g, num, n_and, n_ale, n_atra, n_alc, n_eve))
+    db.flush()
+
+    random.seed(123)
+    for (group_obj, obj_num, n_and, n_ale, n_atra, n_alc, n_eve) in groups:
+        templates = META_TEMPLATES.get(obj_num, [])
+        flags = FLAGS_BY_OBJ.get(obj_num, {})
+        sec_idx = OBJ_TO_SEC.get(obj_num)
+        sec = secretariats[sec_idx - 1] if sec_idx and sec_idx <= len(secretariats) else None
+
+        # Build status queue matching counts from screenshot
+        statuses = (["Em andamento"] * n_and + ["Em alerta"] * n_ale +
+                    ["Atrasado"] * n_atra + ["Alcançado"] * n_alc +
+                    ["Evento a confirmar"] * n_eve)
+        random.shuffle(statuses)
+
+        for i, template in enumerate(templates):
+            desc, unit, planned, actual, planned_date, priority = template
+            status = statuses[i] if i < len(statuses) else "Em andamento"
+            progress = round((actual / planned * 100) if planned > 0 else 0, 1)
+
+            m = Meta(
+                code=f"{obj_num}.{i + 1}",
+                description=desc,
+                goal_group_id=group_obj.id,
+                secretariat_id=sec.id if sec else None,
+                priority=priority,
+                status=status,
+                flag_100_dias=flags.get("100d", False),
+                flag_estadao=flags.get("est", False),
+                flag_folha=flags.get("folha", False),
+                flag_interior=flags.get("int", False),
+                flag_capital=flags.get("cap", False),
+                flag_infraestrutura=flags.get("infra", False),
+                planned_value=planned,
+                actual_value=actual,
+                unit=unit,
+                planned_date=planned_date,
+                progress_pct=progress,
+            )
+            db.add(m)
+    db.flush()
+
+
 def seed_all():
     # Create tables
     Base.metadata.create_all(bind=engine)
@@ -371,12 +776,18 @@ def seed_all():
     db: Session = SessionLocal()
 
     try:
-        # Check idempotency
+        # Check idempotency for main data
         if db.query(Deputy).count() > 0:
-            print("Database already seeded, skipping.")
+            # Check if metas need seeding separately
+            if db.query(GoalGroup).count() == 0:
+                print("Main data already seeded. Seeding metas...")
+                secretariats = db.query(Secretariat).all()
+                _seed_metas(db, secretariats)
+                db.commit()
+                print("Metas seeded successfully.")
+            else:
+                print("Database already seeded, skipping.")
             return
-
-        print("Seeding deputies...")
         deputies = []
         for row in DEPUTIES_DATA:
             name, party, votes, reg, ranking, is_sub, mandates, photo = row
@@ -512,6 +923,9 @@ def seed_all():
             )
             db.add(am)
             count += 1
+
+        print("Seeding metas (Programa de Metas)...")
+        _seed_metas(db, secretariats)
 
         db.commit()
         print("Seeding complete!")
