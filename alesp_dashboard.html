@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALESP Dashboard — 94 Deputados Estaduais SP (2023–2027)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
+    --border:#30363d;--text:#e6edf3;--muted:#8b949e;
+    --accent:#58a6ff;--green:#3fb950;--orange:#d29922;--red:#f85149;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+
+  header{background:linear-gradient(135deg,#1a3a6e 0%,#0d1117 60%);padding:24px 32px 18px;border-bottom:1px solid var(--border)}
+  .header-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .logo h1{font-size:1.6rem;font-weight:700;color:#fff;letter-spacing:-.5px}
+  .logo p{color:var(--muted);font-size:.82rem;margin-top:2px}
+  .badges{display:flex;gap:8px;flex-wrap:wrap}
+  .badge{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:.72rem;color:var(--muted)}
+  .badge b{color:var(--accent)}
+  .api-bar{margin-top:12px;padding:8px 14px;background:rgba(88,166,255,.07);border:1px solid rgba(88,166,255,.2);border-radius:8px;font-size:.77rem;color:var(--muted)}
+  .api-bar a{color:var(--accent);text-decoration:none}.api-bar a:hover{text-decoration:underline}
+  .data-notice{margin:12px 32px 0;padding:8px 14px;background:rgba(63,185,80,.07);border:1px solid rgba(63,185,80,.25);border-radius:8px;font-size:.75rem;color:#3fb950}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:14px 32px}
+  .stat{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+  .stat .v{font-size:1.7rem;font-weight:700;color:var(--accent)}
+  .stat .l{font-size:.72rem;color:var(--muted);margin-top:3px}
+
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 32px 14px}
+  @media(max-width:860px){.charts{grid-template-columns:1fr}}
+  .chart-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px}
+  .chart-box h3{font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+  .chart-wrap{position:relative;height:230px}
+
+  .controls{padding:12px 32px;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .search-wrap{position:relative;flex:1;min-width:180px;max-width:300px}
+  .search-wrap input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px 7px 32px;font-size:.82rem;outline:none}
+  .search-wrap input:focus{border-color:var(--accent)}
+  .search-wrap .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem}
+  .filters{display:flex;gap:6px;flex-wrap:wrap}
+  .fbtn{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:5px 12px;font-size:.75rem;cursor:pointer;transition:all .15s}
+  .fbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .fbtn.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700}
+  .sort-sel{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:.78rem;outline:none;cursor:pointer}
+  .view-btns{display:flex;gap:5px;margin-left:auto}
+  .vbtn{background:var(--bg3);border:1px solid var(--border);color:var(--muted);padding:7px 11px;border-radius:8px;cursor:pointer;font-size:.85rem}
+  .vbtn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+
+  .dep-section{padding:0 32px 32px}
+  .sec-header{display:flex;align-items:center;justify-content:space-between;margin:14px 0 12px}
+  .sec-header h2{font-size:.82rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .cnt{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:.72rem;color:var(--muted)}
+
+  /* GRID */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:all .18s}
+  .card:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 4px 18px rgba(88,166,255,.12)}
+  .card-top{display:flex;flex-direction:column;align-items:center;padding:16px 10px 10px}
+  .avatar{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#fff;flex-shrink:0;object-fit:cover}
+  .card-name{font-size:.78rem;font-weight:600;text-align:center;margin-top:8px;line-height:1.3}
+  .party-tag{border-radius:12px;padding:2px 9px;font-size:.67rem;font-weight:700;margin-top:5px}
+  .card-bottom{padding:8px 10px 10px;border-top:1px solid var(--border)}
+  .card-row{display:flex;justify-content:space-between;margin-bottom:3px}
+  .card-row .lbl{font-size:.65rem;color:var(--muted)}
+  .card-row .val{font-size:.65rem;font-weight:600}
+  .votes-line{text-align:center;font-size:.7rem;color:var(--muted);margin-top:4px}
+  .votes-line b{color:var(--green);font-size:.74rem}
+  .rank-pill{background:rgba(88,166,255,.15);color:var(--accent);font-size:.62rem;font-weight:700;padding:1px 6px;border-radius:8px;margin-top:3px;display:inline-block}
+  .sup-tag{background:var(--orange);color:#000;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:8px}
+  .mand-badge{background:rgba(63,185,80,.15);color:var(--green);font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:8px}
+
+  /* LIST */
+  .list{display:flex;flex-direction:column;gap:5px}
+  .row{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s}
+  .row:hover{border-color:var(--accent)}
+  .row .rk{width:26px;font-size:.72rem;color:var(--muted);font-weight:700;text-align:center}
+  .row .av-sm{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;flex-shrink:0;object-fit:cover}
+  .row .inf{flex:1;min-width:0}
+  .row .inf .nm{font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .inf .sub{font-size:.67rem;color:var(--muted);margin-top:1px}
+  .row .ptag{font-size:.67rem;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0}
+  .row .vc{text-align:right;flex-shrink:0}
+  .row .vc .vv{font-size:.78rem;font-weight:700;color:var(--green)}
+  .row .vc .vl{font-size:.62rem;color:var(--muted)}
+
+  /* MODAL */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;z-index:1000;align-items:center;justify-content:center;padding:20px}
+  .overlay.open{display:flex}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:min(560px,100%);max-height:85vh;overflow-y:auto}
+  .mhead{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+  .mav{width:72px;height:72px;border-radius:50%;object-fit:cover;flex-shrink:0}
+  .mav-init{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:#fff;flex-shrink:0}
+  .minfo h2{font-size:1rem;font-weight:700}
+  .minfo .prow{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap}
+  .mclose{margin-left:auto;background:var(--bg3);border:1px solid var(--border);color:var(--muted);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .mbody{padding:18px 22px}
+  .mstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+  .mst{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px;text-align:center}
+  .mst .mv{font-size:1.1rem;font-weight:700;color:var(--accent)}
+  .mst .ml{font-size:.62rem;color:var(--muted);margin-top:2px}
+  .mlinks{display:flex;flex-direction:column;gap:7px}
+  .mlink{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-size:.78rem;transition:all .15s}
+  .mlink:hover{border-color:var(--accent);color:var(--accent)}
+
+  footer{border-top:1px solid var(--border);padding:14px 32px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+  footer p{font-size:.72rem;color:var(--muted)}
+  footer a{color:var(--accent);text-decoration:none}
+  @media(max-width:600px){header,.stats,.charts,.controls,.dep-section,footer{padding-left:14px;padding-right:14px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div class="logo">
+      <h1>🏛️ ALESP Dashboard</h1>
+      <p>Assembleia Legislativa do Estado de São Paulo · 20ª Legislatura · 2023–2027</p>
+    </div>
+    <div class="badges">
+      <div class="badge">94 Deputados</div>
+      <div class="badge">Eleição <b>out/2022</b></div>
+      <div class="badge">Atualizado: <b>abr/2026</b></div>
+    </div>
+  </div>
+  <div class="api-bar">
+    🔗 <b>Fontes:</b>
+    <a href="https://www.al.sp.gov.br/deputado/lista/" target="_blank">ALESP — Lista de Deputados</a> &nbsp;·&nbsp;
+    <a href="https://legis-backend-api-portal.pub.al.sp.gov.br/api_portal/parlamentar-portal/detalhes/" target="_blank">API ALESP (mandatos + fotos)</a> &nbsp;·&nbsp;
+    <a href="https://pt.wikipedia.org/wiki/Lista_de_deputados_estaduais_de_S%C3%A3o_Paulo_da_20.%C2%AA_legislatura" target="_blank">Wikipedia — votos 2022</a> &nbsp;·&nbsp;
+    <a href="https://www.al.sp.gov.br/alesp/votacoes-no-plenario/" target="_blank">Votações no Plenário</a>
+  </div>
+</header>
+
+<div class="data-notice">
+  ✅ Dados reais: nomes/partidos <b>al.sp.gov.br/deputado/lista/</b> · votos 2022 <b>Wikipedia</b> · mandatos + fotos <b>API legis-backend ALESP</b> · 2 suplentes sem votos próprios. Partidos são os <i>atuais</i> (após migrações pós-eleição).
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="v">94</div><div class="l">Deputados ativos</div></div>
+  <div class="stat"><div class="v" id="s-partidos">—</div><div class="l">Partidos distintos</div></div>
+  <div class="stat"><div class="v">807k</div><div class="l">Maior votação (Suplicy)</div></div>
+  <div class="stat"><div class="v" id="s-media">—</div><div class="l">Média de votos</div></div>
+  <div class="stat"><div class="v" id="s-mandatos">—</div><div class="l">Mais mandatos (Bragato)</div></div>
+</div>
+
+<div class="charts">
+  <div class="chart-box">
+    <h3>Distribuição por Partido (atual)</h3>
+    <div class="chart-wrap"><canvas id="cPartidos"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <h3>Top 15 Mais Votados — Eleição 2022</h3>
+    <div class="chart-wrap"><canvas id="cVotos"></canvas></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="search-wrap">
+    <span class="ico">🔍</span>
+    <input type="text" id="searchInput" placeholder="Buscar por nome ou partido...">
+  </div>
+  <div class="filters" id="filterGroup">
+    <button class="fbtn active" data-f="all">Todos</button>
+    <button class="fbtn" data-f="PL">PL</button>
+    <button class="fbtn" data-f="PT">PT</button>
+    <button class="fbtn" data-f="PSDB">PSDB</button>
+    <button class="fbtn" data-f="REPUBLICANOS">Rep.</button>
+    <button class="fbtn" data-f="UNIÃO">União</button>
+    <button class="fbtn" data-f="PSD">PSD</button>
+    <button class="fbtn" data-f="PSOL">PSOL</button>
+    <button class="fbtn" data-f="outros">Outros</button>
+  </div>
+  <select class="sort-sel" id="sortSel" onchange="render()">
+    <option value="nome">A–Z Nome</option>
+    <option value="votos" selected>↓ Mais votados</option>
+    <option value="partido">Partido</option>
+    <option value="mandatos">↓ Mais mandatos</option>
+    <option value="ranking">Ranking votos</option>
+  </select>
+  <div class="view-btns">
+    <button class="vbtn active" id="gBtn" onclick="setView('grid')">⊞</button>
+    <button class="vbtn" id="lBtn" onclick="setView('list')">☰</button>
+  </div>
+</div>
+
+<div class="dep-section">
+  <div class="sec-header">
+    <h2>Deputados</h2>
+    <span class="cnt" id="cntBadge">94 exibidos</span>
+  </div>
+  <div id="container" class="grid"></div>
+</div>
+
+<footer>
+  <p>Dados: <a href="https://www.al.sp.gov.br/deputado/lista/" target="_blank">ALESP</a> · <a href="https://pt.wikipedia.org/wiki/Lista_de_deputados_estaduais_de_S%C3%A3o_Paulo_da_20.%C2%AA_legislatura" target="_blank">Wikipedia</a> · API legis-backend ALESP</p>
+  <p>Dashboard com dados públicos · Abr/2026</p>
+</footer>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeM(event)">
+  <div class="modal">
+    <div class="mhead" id="mHead"></div>
+    <div class="mbody" id="mBody"></div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// DATASET REAL — 94 Deputados ALESP 20ª Legislatura
+// [nome, partido_atual, votos_2022, matricula, ranking, suplente, mandatos, foto]
+// Nomes/partidos: al.sp.gov.br/deputado/lista/ (abr/2026)
+// Votos: Wikipedia 20ª Legislatura
+// Mandatos + fotos: legis-backend-api-portal.pub.al.sp.gov.br/api_portal/parlamentar-portal/detalhes/{matricula}
+// =====================================================================
+const FOTO_BASE = 'https://www3.al.sp.gov.br/legis';
+
+const D = [
+  ["Agente Federal Danilo Balas","PL",94552,300607,48,false,2,"/biografia/fotos/300607/678129ff534ded49f5d96881ab26868b6170b40819639502898b48ee6030c787.jpeg"],
+  ["Alex Madureira","PL",74340,300608,77,false,2,"/biografia/fotos/20230302-145402-id=546-GRD.jpg"],
+  ["Altair Moraes","REPUBLICANOS",98515,300609,45,false,2,"/biografia/fotos/20230315-141411-id=545-GRD.jpeg"],
+  ["Ana Carolina Serra","CIDADANIA",195436,300657,10,false,1,"/biografia/fotos/20230315-163915-id=1622-GRD.jpeg"],
+  ["Ana Perugini","PT",79061,300466,70,false,3,"/biografia/fotos/20230320-180813-id=81-GRD.jpg"],
+  ["Analice Fernandes","PSD",90135,300431,55,false,6,"/biografia/fotos/300431/69142319ee3fc052a205d625527ba5a8de9faa52aa1b643a8b3c0f41f886e1a7.jpeg"],
+  ["André Bueno","PL",61953,300694,98,false,1,"/biografia/fotos/300694/e887523d7aec18236fb4b9da8ef2e63fd9c728bc645aa04c5c1131fa9f4fd2c5.jpeg"],
+  ["André do Prado","PL",216268,300497,7,false,4,"/biografia/fotos/300497/2f42bf3f57458a3a37942214178dfc3d890395c8884ceb9979a0aea6f0a1850c.jpeg"],
+  ["Andréa Werner","PSB",88820,300658,56,false,1,"/biografia/fotos/300658/ec8711d9e474223bd1fdb27dbaff6fb7cab4ecb03d9f34023706fb4734e2868d.jpeg"],
+  ["Atila Jacomussi","UNIÃO",58707,300537,89,false,2,"/biografia/fotos/20230315-170109-id=265-GRD.jpg"],
+  ["Barros Munhoz","PSD",86372,300188,58,false,7,"/biografia/fotos/300188/c5f99a2bc1c4d2dfe5d72c8a24e6b9a242b03d5b61314284be308fee932813a6.jpeg"],
+  ["Beth Sahão","PT",65407,300435,83,false,6,"/biografia/fotos/20230317-110718-id=31-GRD.jpeg"],
+  ["Bruna Furlan","PSDB",195436,300659,13,false,1,"/biografia/fotos/20230315-170525-id=1641-GRD.jpeg"],
+  ["Bruno Zambelli","PL",235305,300660,4,false,1,"/biografia/fotos/20230511-162900-id=1644-GRD.jfif"],
+  ["Caio França","PSB",105173,300540,43,false,3,"/biografia/fotos/20230321-190741-id=267-GRD.jpg"],
+  ["Capitão Telhada","PP",83438,300661,62,false,1,"/biografia/fotos/20230315-173219-id=1648-GRD.png"],
+  ["Carla Morando","PSDB",177773,300614,18,false,2,"/biografia/fotos/20230315-142108-id=540-GRD.jpeg"],
+  ["Carlão Pignatari","PSD",105245,300499,42,false,4,"/biografia/fotos/300499/9717fd9e32cdb65c43f9558978d7a440bc407b053773de388c2f6f345989eba6.jpeg"],
+  ["Carlos Giannazi","PSOL",276811,300485,2,false,5,"/biografia/fotos/20230321-191048-id=148-GRD.jpg"],
+  ["Clarice Ganem","PODE",59342,300662,87,false,1,"/biografia/fotos/300662/d9362d62e29435984b085411f9c8dd4f482f95db5b129c476778773a9d4a0cd8.jpeg"],
+  ["Conte Lopes","PL",192454,300205,14,false,8,"/biografia/fotos/20230316-173502-id=180-GRD.jpg"],
+  ["Dani Alonso","PL",80337,300663,69,false,1,"/biografia/fotos/20230315-171350-id=1653-GRD.jpeg"],
+  ["Daniel Soares","UNIÃO",81753,300619,68,false,2,"/biografia/fotos/20230315-142647-id=535-GRD.jpg"],
+  ["Danilo Campetti","REPUBLICANOS",52393,300696,108,false,1,"/biografia/fotos/300696/a52f2209112bbe99acc4cb25b6f0c27e2a5367f51dec72159d16e452dc0e0417.jpeg"],
+  ["Delegada Graciela","PL",68955,300620,79,false,2,"/biografia/fotos/300620/b725bb9f2b1a490e2e6b490ae913be604ec542b36f1375ded387ba72d391e184.jpeg"],
+  ["Delegado Olim","PP",201348,300543,9,false,3,"/biografia/fotos/20230321-191240-id=263-GRD.jpg"],
+  ["Dirceu Dalben","PSD",93397,300650,49,false,2,"/biografia/fotos/20230324-122116-id=561-GRD.png"],
+  ["Donato","PT",88022,300664,57,false,1,"/biografia/fotos/20230321-130104-id=1655-GRD.png"],
+  ["Dr. Eduardo Nóbrega","PODE",53607,300665,91,false,1,"/biografia/fotos/20230315-171633-id=1657-GRD.jpg"],
+  ["Dr. Elton","UNIÃO",46042,300666,120,false,1,""],
+  ["Dr. Jorge do Carmo","PT",82054,300623,66,false,2,"/biografia/fotos/20190315-162558-id=531-GRD.jpg"],
+  ["Ediane Maria","PSOL",175617,300667,20,false,1,"/biografia/fotos/20230427-144843-id=1654-GRD.jpg"],
+  ["Edna Macedo","REPUBLICANOS",82932,300318,63,false,4,"/biografia/fotos/20190315-152242-id=516-GRD.jpeg"],
+  ["Edson Giriboni","UNIÃO",59087,300449,88,false,5,"/biografia/fotos/300449/280f76c24a7653fb998a3811f59dbf282857f0f814f00ebc8dc51230dd9bcb70.jpeg"],
+  ["Eduardo Suplicy","PT",807015,300693,1,false,2,"/biografia/fotos/20230321-191506-id=987-GRD.jpg"],
+  ["Emídio de Souza","PT",157834,300395,22,false,5,"/biografia/fotos/20230315-145500-id=517-GRD.jpg"],
+  ["Enio Tatto","PT",142785,300440,26,false,6,"/biografia/fotos/20191112-192019-id=175-GRD.jpg"],
+  ["Fabiana Bolsonaro","PL",65497,300668,82,false,1,""],
+  ["Fábio Faria de Sá","PODE",51948,300669,111,false,1,"/biografia/fotos/300669/c3164700a1d9a520ce2bd91f02475ecf7392825cc642755ced7be33b02771720.jpeg"],
+  ["Felipe Franco","UNIÃO",90440,300622,54,false,1,"/biografia/fotos/20200819-200938-id=532-GRD.jpeg"],
+  ["Gil Diniz Bolsonaro","PL",196215,300670,12,false,1,"/biografia/fotos/20230321-130525-id=1650-GRD.jpg"],
+  ["Gilmaci Santos","REPUBLICANOS",96361,300671,47,false,1,"/biografia/fotos/20230315-170849-id=1649-GRD.jpeg"],
+  ["Guilherme Cortez","PSOL",45094,300672,121,false,1,"/biografia/fotos/20230321-130905-id=1646-GRD.jpg"],
+  ["Guto Zacarias","MISSÃO",152481,300624,24,false,2,"/biografia/fotos/20191112-191414-id=530-GRD.jpg"],
+  ["Itamar Borges","MDB",183480,300625,15,false,1,"/biografia/fotos/20191114-174133-id=529-GRD.jpg"],
+  ["Jorge Caruso","MDB",82209,300626,64,false,1,"/biografia/fotos/20191112-192211-id=528-GRD.jpg"],
+  ["Jorge Wilson Xerife do Consumidor","REPUBLICANOS",177614,300627,19,false,2,"/biografia/fotos/300627/66d82bc48da44e2c5448551d036be98f99cfd27fb168bb98f10282156ae1b532.jpeg"],
+  ["Leci Brandão","PCdoB",90496,300513,53,false,4,"/biografia/fotos/20230718-161931-id=38-GRD.jpg"],
+  ["Léo Oliveira","MDB",82145,300264,65,false,5,"/biografia/fotos/300264/4480e5e51c390cae6caaa26e6692a785b08df07ff7caaed48d4a351f44e60171.jpeg"],
+  ["Leonardo Siqueira","NOVO",90688,300675,51,false,1,"/biografia/fotos/20230321-192007-id=1642-GRD.png"],
+  ["Letícia Aguiar","PL",68556,300631,80,false,2,"/biografia/fotos/20230315-150330-id=523-GRD.jpg"],
+  ["Lucas Bove","PL",130451,300676,31,false,1,"/biografia/fotos/20230315-170418-id=1640-GRD.jpg"],
+  ["Luiz Claudio Marcolino","PT",70487,300514,78,false,2,"/biografia/fotos/20230529-131249-id=1637-GRD.jpeg"],
+  ["Luiz Fernando T. Ferreira","PT",141017,300545,27,false,3,"/biografia/fotos/300545/b25d811e25a8378431dcab7c7b0e4fdb0e0a4989c68c339ba40d03c99abc2019.jpeg"],
+  ["Major Mecca","PL",224462,300633,5,false,2,"/biografia/fotos/20230322-111405-id=521-GRD.jpeg"],
+  ["Marcelo Aguiar","PL",42898,300698,133,false,1,"/biografia/fotos/300698/ef72b1b9553180987d06d13e9bb6d8e85e7b2555af8ae381438f8148f37ff6de.jpeg"],
+  ["Márcia Lia","PT",108587,300534,39,false,3,"/biografia/fotos/20230802-131346-id=281-GRD.jpg"],
+  ["Marcio Nakashima","PSD",0,300635,0,true,2,"/biografia/fotos/300635/e9bff5d91c252b6c5055f1d7e8fc6742223d6af479becb1f88a008887e4df549.jpeg"],
+  ["Marcos Damasio","PL",183219,300552,16,false,3,"/biografia/fotos/20230321-192550-id=283-GRD.jpg"],
+  ["Maria Lúcia Amary","PSD",66956,300415,81,false,6,"/biografia/fotos/300415/3f7d0ec72a40338819e60ab5285a10f7ba1940272878a742e14054cf0e420866.jpeg"],
+  ["Marina Helou","REDE",85517,300636,60,false,2,"/biografia/fotos/20230302-154543-id=518-GRD.jpg"],
+  ["Marta Costa","PSD",170541,300533,21,false,3,"/biografia/fotos/20191112-192923-id=284-GRD.png"],
+  ["Maurici","PT",121455,300653,35,false,2,"/biografia/fotos/300653/be0fae4ebcffd81468e3e343b158bf55482cc405ffaebbff06fbaf3433ffe098.jpeg"],
+  ["Mauro Bragato","PSD",0,300098,0,true,11,"/biografia/fotos/20190315-144027-id=87-GRD.jpeg"],
+  ["Milton Leite Filho","UNIÃO",198429,300483,11,false,5,"/biografia/fotos/300483/2ccb4033061c8591a60f18d05a9a3d0c4a172a769cb92e198789e1f9dc05fbf4.jpeg"],
+  ["Monica Seixas do Movimento Pretas","PSOL",106781,300637,41,false,2,"/biografia/fotos/300637/33861a85d3642f45442e3d20ccb2f7b97634d8b79ca8995492740c8ee237e5f6.jpeg"],
+  ["Ortiz Junior","REPUBLICANOS",66914,300699,95,false,2,"/biografia/fotos/300699/37ce3fff7b655fd2b2dfb18f3f390af9428263851eed3b906fdfee09f279867a.jpeg"],
+  ["Oseias de Madureira","PL",137205,300677,29,false,1,"/biografia/fotos/300677/d7b9c3790c2d86c4d225e4738159cf265eb2171b3a09716a53e1430af558316e.jpeg"],
+  ["Paula da Bancada Feminista","PSOL",259771,300678,3,false,1,"/biografia/fotos/20230321-110413-id=1635-GRD.jpg"],
+  ["Paulo Correa Jr","REPUBLICANOS",62239,300536,85,false,3,"/biografia/fotos/300536/57790d967b293e30c5be2f49ba2949baf359017c07a783f12a05c1ea24cd21c3.jpeg"],
+  ["Paulo Fiorilo","PT",110251,300638,37,false,2,"/biografia/fotos/300638/8724f840684b834e46bb3550cdab9150d23eab9003b2bc6a65ba12320235895a.jpeg"],
+  ["Paulo Mansur","PL",86201,300679,59,false,1,"/biografia/fotos/20230321-195508-id=1634-GRD.jpg"],
+  ["Profª Camila Godoi","PSB",48986,300700,119,false,1,"/biografia/fotos/300700/11fe7d15b87e2f908dd7763d3d8df855623d2f4cb22d84f421fa4ca6428d8eb2.jpeg"],
+  ["Professora Bebel","PT",155983,300640,23,false,2,"/biografia/fotos/300640/5792a9cebeacc3b58d496afab642a82010316b056eed3885ae11642bd7932177.jpeg"],
+  ["Rafa Zimbaldi","UNIÃO",76910,300641,73,false,2,"/biografia/fotos/300641/a71cdcd1beaa217117340266ae9c98adb952dae5520a9bb94a63d01f000f4baf.jpeg"],
+  ["Rafael Saraiva","UNIÃO",98070,300680,46,false,1,"/biografia/fotos/20230315-165421-id=1633-GRD.jpeg"],
+  ["Rafael Silva","PSD",118182,300344,36,false,8,"/biografia/fotos/300344/ac72cd78bf495cae533e7d143278c7085ea0cd64991bc9bb0117d7a60a85bcd9.jpeg"],
+  ["Reis","PT",108726,300681,38,false,1,"/biografia/fotos/20230321-195741-id=1632-GRD.png"],
+  ["Ricardo França","PODE",64175,300682,84,false,1,"/biografia/fotos/300682/6e3a648bae583eebc11b13e0955f7105566a8ca3291620dc85be8ce114583717.jpeg"],
+  ["Ricardo Madalena","PL",90630,300539,52,false,3,"/biografia/fotos/20230426-174701-id=288-GRD.jfif"],
+  ["Rodrigo Moraes","PL",75094,300519,75,false,4,"/biografia/fotos/300519/4191e426b16ca3c439c3ee9fc27a611f644d778c805f21a9b741d657377076e9.jpeg"],
+  ["Rogério Nogueira","PSD",139756,300407,28,false,6,"/biografia/fotos/20230714-155311-id=71-GRD.jpeg"],
+  ["Rogério Santos","MDB",76602,300683,74,false,1,"/biografia/fotos/20230315-165052-id=1630-GRD.jpg"],
+  ["Rômulo Fernandes","PT",75033,300684,76,false,1,"/biografia/fotos/300684/12597211b0cb0c6f4ab9d7d0e068a38610b210692edda9758cd9118b8d798073.jpeg"],
+  ["Sebastião Santos","REPUBLICANOS",104374,300520,44,false,4,"/biografia/fotos/20230321-200423-id=95-GRD.png"],
+  ["Solange Freitas","UNIÃO",81870,300686,67,false,1,"/biografia/fotos/20230619-135455-id=1626-GRD.png"],
+  ["Tenente Coimbra","PL",209705,300646,8,false,2,"/biografia/fotos/20230807-151348-id=506-GRD.jpg"],
+  ["Teonilio Barba","PT",108071,300584,40,false,3,"/biografia/fotos/300584/68f2d1366ca992ccd95727bfdd789c4b19fce86054251c888c7ca23342f3e448.jpeg"],
+  ["Thainara Faria","PT",91388,300687,50,false,1,"/biografia/fotos/300687/54bcd424e77bc8078e63e9e27ace179e7b56ba04fcc11fd917b82cc2d26b26bf.jpeg"],
+  ["Thiago Auricchio","PL",123483,300648,33,false,2,"/biografia/fotos/20230329-180406-id=504-GRD.jpg"],
+  ["Tomé Abduch","REPUBLICANOS",221656,300688,6,false,1,"/biografia/fotos/300688/dffe0759f4d72645639b028e1e5d4f636aeb1b809f61075ffd78ac589a7ac1a5.jpeg"],
+  ["Valdomiro Lopes","PSB",50824,300396,92,false,4,"/biografia/fotos/20230315-164216-id=1623-GRD.jpeg"],
+  ["Valeria Bolsonaro","PL",131557,300649,30,false,2,"/biografia/fotos/20230321-201012-id=503-GRD.png"],
+  ["Vitão do Cachorrão","PODE",56729,300689,90,false,1,"/biografia/fotos/300689/73aa4cf331fcbaa58dd1540efae714f861c56f5708979f153f2ad4ec32d86d7b.jpeg"],
+];
+// Indices: 0=nome 1=partido 2=votos 3=matricula 4=ranking 5=suplente 6=mandatos 7=foto
+
+// ── CORES DOS PARTIDOS ──────────────────────────────────────
+const COR = {
+  "PL":{"bg":"#003399","txt":"#fff"},
+  "PT":{"bg":"#b30000","txt":"#fff"},
+  "PSDB":{"bg":"#0094d9","txt":"#fff"},
+  "REPUBLICANOS":{"bg":"#00a859","txt":"#fff"},
+  "UNIÃO":{"bg":"#003da5","txt":"#fff"},
+  "PSOL":{"bg":"#f5821f","txt":"#fff"},
+  "PSD":{"bg":"#00407a","txt":"#fff"},
+  "MDB":{"bg":"#00704a","txt":"#fff"},
+  "PP":{"bg":"#1a3a8a","txt":"#fff"},
+  "PODE":{"bg":"#00b4d8","txt":"#000"},
+  "PSB":{"bg":"#e65100","txt":"#fff"},
+  "PCdoB":{"bg":"#cc1a1a","txt":"#fff"},
+  "REDE":{"bg":"#00b36b","txt":"#fff"},
+  "CIDADANIA":{"bg":"#8a2be2","txt":"#fff"},
+  "NOVO":{"bg":"#e67300","txt":"#fff"},
+  "MISSÃO":{"bg":"#555","txt":"#fff"},
+};
+const gc = p => COR[p] || {bg:"#444",txt:"#fff"};
+
+const ini = nome => nome.split(' ').filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join('').toUpperCase() || nome.substring(0,2).toUpperCase();
+const fv = n => n===0 ? 'Suplente' : n>=1000000 ? (n/1000000).toFixed(2)+'M' : n>=1000 ? (n/1000).toFixed(0)+'k' : n.toLocaleString('pt-BR');
+const fvFull = n => n===0 ? 'Como suplente' : n.toLocaleString('pt-BR');
+
+function avatarEl(d, size) {
+  // size: 'card' = 62px, 'row' = 34px, 'modal' = 72px
+  const c = gc(d[1]);
+  const foto = d[7];
+  const cls = size === 'row' ? 'av-sm' : size === 'modal' ? 'mav' : 'avatar';
+  if (foto) {
+    return `<img class="${cls}" src="${FOTO_BASE}${foto}" alt="${d[0]}" loading="lazy" onerror="this.outerHTML='<div class=\\'${cls}\\' style=\\'background:${c.bg};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff\\'>${ini(d[0])}</div>'">`;
+  }
+  return `<div class="${cls}" style="background:${c.bg};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff">${ini(d[0])}</div>`;
+}
+
+// ── STATE ───────────────────────────────────────────────────
+const GRANDES = ['PL','PT','PSDB','REPUBLICANOS','UNIÃO','PSD','PSOL'];
+let curFilter='all', curSearch='', curView='grid', curSort='votos';
+
+document.getElementById('sortSel').value='votos';
+
+function setView(v){
+  curView=v;
+  document.getElementById('gBtn').classList.toggle('active',v==='grid');
+  document.getElementById('lBtn').classList.toggle('active',v==='list');
+  render();
+}
+
+document.querySelectorAll('.fbtn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    curFilter=b.dataset.f;
+    render();
+  });
+});
+document.getElementById('searchInput').addEventListener('input',e=>{
+  curSearch=e.target.value.toLowerCase().trim();
+  render();
+});
+
+function getFiltered(){
+  let data=[...D];
+  if(curFilter!=='all')
+    data=data.filter(d=> curFilter==='outros' ? !GRANDES.includes(d[1]) : d[1]===curFilter);
+  if(curSearch)
+    data=data.filter(d=>d[0].toLowerCase().includes(curSearch)||d[1].toLowerCase().includes(curSearch));
+  curSort=document.getElementById('sortSel').value;
+  data.sort((a,b)=>{
+    if(curSort==='votos') return b[2]-a[2];
+    if(curSort==='nome') return a[0].localeCompare(b[0],'pt-BR');
+    if(curSort==='partido') return a[1].localeCompare(b[1],'pt-BR')||b[2]-a[2];
+    if(curSort==='ranking') return (a[4]||999)-(b[4]||999);
+    if(curSort==='mandatos') return b[6]-a[6]||b[2]-a[2];
+    return 0;
+  });
+  return data;
+}
+
+function cardHTML(d){
+  const c=gc(d[1]);
+  return `<div class="card" onclick="openModal('${d[3]}')">
+    <div class="card-top">
+      ${avatarEl(d,'card')}
+      <div class="card-name">${d[0]}</div>
+      <span class="party-tag" style="background:${c.bg};color:${c.txt}">${d[1]}</span>
+      ${d[5]?'<span class="sup-tag" style="margin-top:4px">SUPLENTE</span>':''}
+    </div>
+    <div class="card-bottom">
+      <div class="card-row">
+        <span class="lbl">Mandatos ALESP</span>
+        <span class="val">${d[6]}</span>
+      </div>
+      ${d[4]>0?`<div class="card-row"><span class="lbl">Ranking</span><span class="val">#${d[4]}°</span></div>`:''}
+      <div class="votes-line">Votos: <b>${fv(d[2])}</b></div>
+    </div>
+  </div>`;
+}
+
+function rowHTML(d,rank){
+  const c=gc(d[1]);
+  return `<div class="row" onclick="openModal('${d[3]}')">
+    <div class="rk">${rank}</div>
+    ${avatarEl(d,'row')}
+    <div class="inf">
+      <div class="nm">${d[0]} ${d[5]?'<span class="sup-tag">SUP</span>':''}</div>
+      <div class="sub">${d[6] > 1 ? d[6]+'× mandato' : '1° mandato'} ${d[4]>0?`· #${d[4]}° mais votado`:''}</div>
+    </div>
+    <span class="ptag" style="background:${c.bg};color:${c.txt}">${d[1]}</span>
+    <div class="vc"><div class="vv">${fv(d[2])}</div><div class="vl">votos</div></div>
+  </div>`;
+}
+
+function render(){
+  const sorted=getFiltered();
+  document.getElementById('cntBadge').textContent=`${sorted.length} exibido${sorted.length!==1?'s':''}`;
+  const el=document.getElementById('container');
+  if(curView==='grid'){
+    el.className='grid';
+    el.innerHTML=sorted.map(cardHTML).join('');
+  } else {
+    el.className='list';
+    el.innerHTML=sorted.map((d,i)=>rowHTML(d,i+1)).join('');
+  }
+}
+
+// ── MODAL ───────────────────────────────────────────────────
+function openModal(matricula){
+  const d=D.find(x=>x[3]==matricula);
+  if(!d) return;
+  const c=gc(d[1]);
+  document.getElementById('mHead').innerHTML=`
+    ${avatarEl(d,'modal')}
+    <div class="minfo">
+      <h2>${d[0]}</h2>
+      <div class="prow">
+        <span class="party-tag" style="background:${c.bg};color:${c.txt};padding:3px 12px;border-radius:12px;font-size:.75rem;font-weight:700">${d[1]}</span>
+        ${d[5]?'<span class="sup-tag">SUPLENTE</span>':''}
+        ${d[4]>0?`<span class="rank-pill">#${d[4]}° mais votado</span>`:''}
+      </div>
+    </div>
+    <button class="mclose" onclick="document.getElementById('overlay').classList.remove('open')">✕</button>`;
+  document.getElementById('mBody').innerHTML=`
+    <div class="mstats">
+      <div class="mst"><div class="mv">${fvFull(d[2])}</div><div class="ml">votos em 2022</div></div>
+      <div class="mst"><div class="mv">${d[4]>0?'#'+d[4]+'°':'—'}</div><div class="ml">ranking 2022</div></div>
+      <div class="mst"><div class="mv">${d[6]}</div><div class="ml">mandatos ALESP</div></div>
+      <div class="mst"><div class="mv">${d[3]}</div><div class="ml">matrícula</div></div>
+    </div>
+    <div class="mlinks">
+      <a class="mlink" href="https://www.al.sp.gov.br/deputado/?matricula=${d[3]}" target="_blank">👤 Perfil completo na ALESP</a>
+      <a class="mlink" href="https://legis-backend-api-portal.pub.al.sp.gov.br/api_portal/parlamentar-portal/detalhes/${d[3]}" target="_blank">🔌 Dados JSON via API ALESP</a>
+      <a class="mlink" href="https://www.al.sp.gov.br/alesp/votacoes-no-plenario/" target="_blank">🗳️ Votações nominais do plenário</a>
+      <a class="mlink" href="https://www.al.sp.gov.br/alesp/pesquisa-proposicoes/?autorDeputado=${encodeURIComponent(d[0])}" target="_blank">📑 Proposições de autoria</a>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeM(e){ if(e.target===document.getElementById('overlay')) document.getElementById('overlay').classList.remove('open'); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.getElementById('overlay').classList.remove('open'); });
+
+// ── CHARTS ──────────────────────────────────────────────────
+function buildCharts(){
+  const cnt={};
+  D.forEach(d=>{ cnt[d[1]]=(cnt[d[1]]||0)+1; });
+  const parts=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+  new Chart(document.getElementById('cPartidos'),{
+    type:'doughnut',
+    data:{
+      labels:parts.map(([p,n])=>`${p} (${n})`),
+      datasets:[{data:parts.map(([,n])=>n),backgroundColor:parts.map(([p])=>gc(p).bg),borderColor:'#0d1117',borderWidth:2}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{
+      legend:{position:'right',labels:{color:'#8b949e',font:{size:9},boxWidth:10,padding:6}},
+      tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} deputados`}}
+    }}
+  });
+
+  const top15=[...D].filter(d=>d[2]>0).sort((a,b)=>b[2]-a[2]).slice(0,15);
+  new Chart(document.getElementById('cVotos'),{
+    type:'bar',
+    data:{
+      labels:top15.map(d=>d[0].split(' ').slice(0,2).join(' ')),
+      datasets:[{label:'Votos',data:top15.map(d=>d[2]),backgroundColor:top15.map(d=>gc(d[1]).bg),borderRadius:4}]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>`${c.raw.toLocaleString('pt-BR')} votos — ${top15[c.dataIndex][1]}`}}
+    },
+    scales:{
+      x:{ticks:{color:'#8b949e',callback:v=>v>=1000?Math.round(v/1000)+'k':v},grid:{color:'#21262d'}},
+      y:{ticks:{color:'#e6edf3',font:{size:9}},grid:{display:false}}
+    }}
+  });
+}
+
+// ── INIT ────────────────────────────────────────────────────
+const partidos=new Set(D.map(d=>d[1]));
+document.getElementById('s-partidos').textContent=partidos.size;
+const comVotos=D.filter(d=>d[2]>0);
+const totalVotos=comVotos.reduce((s,d)=>s+d[2],0);
+const media=Math.round(totalVotos/comVotos.length);
+document.getElementById('s-media').textContent=(media/1000).toFixed(0)+'k';
+const maxMandatos=Math.max(...D.map(d=>d[6]));
+document.getElementById('s-mandatos').textContent=maxMandatos;
+
+render();
+buildCharts();
+</script>
+</body>
+</html>

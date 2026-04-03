@@ -1,0 +1,27 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "docker (todos os serviços)",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "--build"],
+      "port": 3000,
+      "cwd": "casa-civil-sp"
+    },
+    {
+      "name": "frontend (vite dev)",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--host"],
+      "port": 3000,
+      "autoPort": true,
+      "cwd": "casa-civil-sp/frontend"
+    },
+    {
+      "name": "backend (uvicorn)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      "port": 8000,
+      "cwd": "casa-civil-sp/backend"
+    }
+  ]
+}
