@@ -1,18 +1,54 @@
 import { NavLink } from 'react-router-dom'
 
-const NAV_ITEMS = [
+const VISOES = [
   { to: '/', label: 'Dashboard', icon: '🏠' },
+  { to: '/metas', label: 'Programa de Metas', icon: '🎯' },
+]
+
+const DIMENSOES = [
   { to: '/alesp', label: 'ALESP', icon: '🏛️' },
   { to: '/secretarias', label: 'Secretarias', icon: '📁' },
-  { to: '/prefeitos', label: 'Prefeitos', icon: '🏙️' },
-  { to: '/programas', label: 'Programas', icon: '📋' },
-  { to: '/metas', label: 'Programa de Metas', icon: '🎯' },
-  { to: '/objetivos', label: 'Dim. Objetivos', icon: '📊' },
+  { to: '/prefeitos', label: 'Municípios', icon: '🏙️' },
+  { to: '/objetivos', label: 'Objetivos', icon: '📊' },
 ]
 
 interface SidebarProps {
   isOpen: boolean
   onClose: () => void
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+      color: 'var(--muted)', textTransform: 'uppercase',
+      padding: '10px 10px 4px', marginTop: 8,
+    }}>
+      {label}
+    </div>
+  )
+}
+
+function NavItem({ to, label, icon, onClose }: { to: string; label: string; icon: string; onClose: () => void }) {
+  return (
+    <NavLink
+      to={to}
+      end={to === '/'}
+      onClick={onClose}
+      style={({ isActive }) => ({
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 10px', borderRadius: 6, marginBottom: 2,
+        textDecoration: 'none', fontSize: 13,
+        fontWeight: isActive ? 600 : 400,
+        color: isActive ? 'var(--accent)' : 'var(--muted)',
+        background: isActive ? 'rgba(88,166,255,0.1)' : 'transparent',
+        transition: 'all 0.15s',
+      })}
+    >
+      <span style={{ fontSize: 16, lineHeight: 1 }}>{icon}</span>
+      <span>{label}</span>
+    </NavLink>
+  )
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -41,26 +77,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto' }}>
-        {NAV_ITEMS.map(({ to, label, icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            onClick={onClose}
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 10px', borderRadius: 6, marginBottom: 2,
-              textDecoration: 'none', fontSize: 13,
-              fontWeight: isActive ? 600 : 400,
-              color: isActive ? 'var(--accent)' : 'var(--muted)',
-              background: isActive ? 'rgba(88,166,255,0.1)' : 'transparent',
-              transition: 'all 0.15s',
-            })}
-          >
-            <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>
-            <span>{label}</span>
-          </NavLink>
+      <nav style={{ flex: 1, padding: '8px 8px', overflowY: 'auto' }}>
+        <SectionLabel label="Visões" />
+        {VISOES.map(({ to, label, icon }) => (
+          <NavItem key={to} to={to} label={label} icon={icon} onClose={onClose} />
+        ))}
+
+        <SectionLabel label="Dimensões" />
+        {DIMENSOES.map(({ to, label, icon }) => (
+          <NavItem key={to} to={to} label={label} icon={icon} onClose={onClose} />
         ))}
       </nav>
 

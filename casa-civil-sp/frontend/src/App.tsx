@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard'
 import Deputies from './pages/Deputies'
 import Secretariats from './pages/Secretariats'
 import Mayors from './pages/Mayors'
-import Programs from './pages/Programs'
 import Metas from './pages/Metas'
 import Objetivos from './pages/Objetivos'
 
@@ -40,7 +39,6 @@ export default function App() {
             <Route path="/alesp" element={<Deputies />} />
             <Route path="/secretarias" element={<Secretariats />} />
             <Route path="/prefeitos" element={<Mayors />} />
-            <Route path="/programas" element={<Programs />} />
             <Route path="/metas" element={<Metas />} />
             <Route path="/objetivos" element={<Objetivos />} />
           </Routes>
