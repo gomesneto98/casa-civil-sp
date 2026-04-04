@@ -1345,6 +1345,19 @@ def seed_all():
     db: Session = SessionLocal()
 
     try:
+        # Run safe schema migrations (idempotent via IF NOT EXISTS)
+        migrations = [
+            "ALTER TABLE secretariats ADD COLUMN IF NOT EXISTS emoji VARCHAR",
+            "ALTER TABLE secretariats ADD COLUMN IF NOT EXISTS party VARCHAR",
+            "ALTER TABLE secretariats ADD COLUMN IF NOT EXISTS executives VARCHAR",
+        ]
+        for migration in migrations:
+            try:
+                db.execute(text(migration))
+                db.commit()
+            except Exception:
+                db.rollback()
+
         # Check idempotency for main data
         if db.query(Deputy).count() > 0:
             # Auto-migrate: if municipalities < 600, truncate geo data and reseed
