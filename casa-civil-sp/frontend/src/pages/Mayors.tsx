@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import axios from 'axios'
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
-import type { Map as LeafletMap } from 'leaflet'
+import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
+import type { GeoJsonObject, FeatureCollection, Feature } from 'geojson'
+import type L from 'leaflet'
 import { partyColor } from '../utils'
 
 interface Mayor {
@@ -186,12 +187,17 @@ function DeleteConfirm({ name, onClose, onConfirm }: { name: string; onClose: ()
   )
 }
 
-function FlyTo({ lat, lng }: { lat: number; lng: number }) {
-  const map = useMap()
-  useEffect(() => {
-    map.flyTo([lat, lng], 10, { duration: 1 })
-  }, [lat, lng, map])
-  return null
+// Choropleth color scale by population (Censo 2022)
+function getPopColor(pop: number | null | undefined): string {
+  if (!pop) return '#2d333b'
+  if (pop >= 1_000_000) return '#1e3a8a'
+  if (pop >= 500_000) return '#1d4ed8'
+  if (pop >= 200_000) return '#2563eb'
+  if (pop >= 100_000) return '#3b82f6'
+  if (pop >= 50_000) return '#60a5fa'
+  if (pop >= 20_000) return '#93c5fd'
+  if (pop >= 10_000) return '#bfdbfe'
+  return '#dbeafe'
 }
 
 function formatPop(n: number | null) {
@@ -206,15 +212,42 @@ export default function Mayors() {
   const [loading, setLoading] = useState(true)
   const [regionFilter, setRegionFilter] = useState('Todos')
   const [search, setSearch] = useState('')
-  const [focusCity, setFocusCity] = useState<{ lat: number; lng: number } | null>(null)
   const [highlightId, setHighlightId] = useState<number | null>(null)
   const [modal, setModal] = useState<{ item: Municipality | null } | null>(null)
   const [deleting, setDeleting] = useState<Municipality | null>(null)
 
+  // Choropleth map state
+  const [geoJson, setGeoJson] = useState<FeatureCollection | null>(null)
+  const [codeToName, setCodeToName] = useState<Record<string, string>>({})
+  const [munByName, setMunByName] = useState<Record<string, Municipality>>({})
+  const [selectedMun, setSelectedMun] = useState<Municipality | null>(null)
+  const selectedLayerRef = useRef<L.Path | null>(null)
+  const geoLayerRef = useRef<L.GeoJSON | null>(null)
+
   useEffect(() => {
-    axios.get<Municipality[]>('/api/municipalities')
-      .then(r => setMunicipalities(r.data))
-      .finally(() => setLoading(false))
+    Promise.all([
+      axios.get<Municipality[]>('/api/municipalities'),
+      fetch('https://servicodados.ibge.gov.br/api/v2/malhas/35?resolucao=5&formato=application/vnd.geo+json').then(r => r.json()),
+      fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados/35/municipios').then(r => r.json()),
+    ]).then(([munRes, geo, ibgeMuns]) => {
+      const muns: Municipality[] = munRes.data
+      setMunicipalities(muns)
+
+      const byName: Record<string, Municipality> = {}
+      muns.forEach(m => { byName[m.name] = m })
+      setMunByName(byName)
+
+      const c2n: Record<string, string> = {}
+      ;(ibgeMuns as { id: number; nome: string }[]).forEach(m => { c2n[String(m.id)] = m.nome })
+      setCodeToName(c2n)
+
+      setGeoJson(geo as FeatureCollection)
+      setLoading(false)
+    }).catch(() => {
+      axios.get<Municipality[]>('/api/municipalities')
+        .then(r => setMunicipalities(r.data))
+        .finally(() => setLoading(false))
+    })
   }, [])
 
   function handleSaved(m: Municipality) {
@@ -243,10 +276,8 @@ export default function Mayors() {
   }, [municipalities, regionFilter, search])
 
   const handleSelect = (mun: Municipality) => {
-    if (mun.lat && mun.lng) {
-      setFocusCity({ lat: mun.lat, lng: mun.lng })
-      setHighlightId(mun.id)
-    }
+    setSelectedMun(mun)
+    setHighlightId(mun.id)
   }
 
   const totalPop = municipalities.reduce((s, m) => s + (m.population || 0), 0)
@@ -260,12 +291,55 @@ export default function Mayors() {
     return stats
   }, [municipalities])
 
+  // GeoJSON choropleth callbacks
+  const geoStyle = useCallback((feature?: Feature) => {
+    const code = (feature?.properties as Record<string, string>)?.codarea
+    const name = codeToName[code]
+    const mun = name ? munByName[name] : undefined
+    return {
+      fillColor: getPopColor(mun?.population),
+      fillOpacity: 0.8,
+      color: '#0d1117',
+      weight: 0.5,
+    }
+  }, [codeToName, munByName])
+
+  const onEachFeature = useCallback((feature: Feature, layer: import('leaflet').Layer) => {
+    const code = (feature?.properties as Record<string, string>)?.codarea
+    const name = codeToName[code]
+    const mun = name ? munByName[name] : undefined
+    if (name) {
+      ;(layer as import('leaflet').Path).bindTooltip(name, { sticky: true })
+    }
+    layer.on({
+      click: () => {
+        if (selectedLayerRef.current && geoLayerRef.current) {
+          geoLayerRef.current.resetStyle(selectedLayerRef.current)
+        }
+        ;(layer as import('leaflet').Path).setStyle({ color: '#ffffff', weight: 2, fillOpacity: 1 })
+        selectedLayerRef.current = layer as import('leaflet').Path
+        setSelectedMun(mun ?? null)
+        setHighlightId(mun?.id ?? null)
+      },
+      mouseover: (e: import('leaflet').LeafletMouseEvent) => {
+        if (layer !== selectedLayerRef.current) {
+          ;(e.target as import('leaflet').Path).setStyle({ fillOpacity: 0.95 })
+        }
+      },
+      mouseout: (e: import('leaflet').LeafletMouseEvent) => {
+        if (layer !== selectedLayerRef.current) {
+          ;(e.target as import('leaflet').Path).setStyle({ fillOpacity: 0.8 })
+        }
+      },
+    })
+  }, [codeToName, munByName])
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 4 }}>
         <div>
           <div className="page-title">Prefeitos e Municípios</div>
-          <div className="page-subtitle">30 maiores municípios · Eleições 2024 · Mandato 2025–2028</div>
+          <div className="page-subtitle">645 municípios · Censo 2022 · Eleições 2024</div>
         </div>
         <button style={btnPrimary} onClick={() => setModal({ item: null })}>+ Nova Cidade</button>
       </div>
@@ -295,82 +369,119 @@ export default function Mayors() {
       {/* Map */}
       {!loading && (
         <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 20, borderRadius: 8 }}>
-          <div style={{ height: 400, position: 'relative' }}>
-            <MapContainer
-              center={[-22.5, -48.5]}
-              zoom={6}
-              style={{ height: '100%', width: '100%', background: '#161b22' }}
-              zoomControl={true}
-            >
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-              />
-              {focusCity && <FlyTo lat={focusCity.lat} lng={focusCity.lng} />}
-              {municipalities.filter(m => m.lat && m.lng).map(mun => {
-                const color = REGION_COLORS[mun.region] ?? '#8b949e'
-                const isHighlight = mun.id === highlightId
-                const radius = mun.population
-                  ? Math.max(6, Math.min(22, Math.sqrt(mun.population / 50000) * 4))
-                  : 7
+          <div style={{ display: 'flex', height: 460, position: 'relative' }}>
+            {/* Choropleth */}
+            <div style={{ flex: 1, position: 'relative' }}>
+              <MapContainer
+                center={[-22.5, -48.5]}
+                zoom={6}
+                style={{ height: '100%', width: '100%', background: '#161b22' }}
+                zoomControl={true}
+              >
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                />
+                {geoJson && (
+                  <GeoJSON
+                    key={Object.keys(munByName).length}
+                    data={geoJson as GeoJsonObject}
+                    style={geoStyle}
+                    onEachFeature={onEachFeature}
+                    ref={(r: import('leaflet').GeoJSON | null) => { geoLayerRef.current = r }}
+                  />
+                )}
+              </MapContainer>
+              {!geoJson && (
+                <div style={{
+                  position: 'absolute', inset: 0, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--muted)', fontSize: 13,
+                }}>Carregando mapa…</div>
+              )}
+            </div>
 
-                return (
-                  <CircleMarker
-                    key={mun.id}
-                    center={[mun.lat!, mun.lng!]}
-                    radius={isHighlight ? radius + 4 : radius}
-                    pathOptions={{
-                      fillColor: isHighlight ? '#fff' : color,
-                      color: isHighlight ? '#fff' : color,
-                      fillOpacity: isHighlight ? 0.95 : 0.75,
-                      weight: isHighlight ? 3 : 1.5,
-                    }}
-                    eventHandlers={{ click: () => setHighlightId(mun.id) }}
-                  >
-                    <Popup>
-                      <div style={{ minWidth: 180 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{mun.name}</div>
-                        <div style={{
-                          display: 'inline-block', padding: '2px 8px', borderRadius: 10,
-                          fontSize: 10, fontWeight: 600, marginBottom: 8,
-                          background: `${color}33`, color,
-                        }}>
-                          {mun.region}
-                        </div>
-                        {mun.population && (
-                          <div style={{ fontSize: 12, marginBottom: 6 }}>
-                            👥 {mun.population.toLocaleString('pt-BR')} hab.
-                          </div>
-                        )}
-                        {mun.mayor && (
-                          <>
-                            <div style={{ fontSize: 12, fontWeight: 600 }}>
-                              🏛 {mun.mayor.name}
-                            </div>
-                            <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
-                              {mun.mayor.party} · {mun.mayor.term_start}–{mun.mayor.term_end}
-                            </div>
-                          </>
-                        )}
+            {/* Info panel — selected municipality */}
+            <div style={{
+              width: 220, background: 'var(--bg2)', borderLeft: '1px solid var(--border)',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}>
+              {selectedMun ? (
+                <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.3 }}>{selectedMun.name}</span>
+                    <button
+                      onClick={() => { setSelectedMun(null); if (geoLayerRef.current && selectedLayerRef.current) { geoLayerRef.current.resetStyle(selectedLayerRef.current); selectedLayerRef.current = null } }}
+                      style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: 0 }}
+                    >✕</button>
+                  </div>
+                  <span style={{
+                    display: 'inline-block', padding: '2px 8px', borderRadius: 10,
+                    fontSize: 10, fontWeight: 600, width: 'fit-content',
+                    background: `${REGION_COLORS[selectedMun.region] ?? '#8b949e'}22`,
+                    color: REGION_COLORS[selectedMun.region] ?? '#8b949e',
+                  }}>
+                    {selectedMun.region}
+                  </span>
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 3 }}>POPULAÇÃO (Censo 2022)</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: getPopColor(selectedMun.population) }}>
+                        {selectedMun.population ? selectedMun.population.toLocaleString('pt-BR') : '—'}
                       </div>
-                    </Popup>
-                  </CircleMarker>
-                )
-              })}
-            </MapContainer>
+                      <div style={{ fontSize: 10, color: 'var(--muted)' }}>habitantes</div>
+                    </div>
+                  </div>
+                  {selectedMun.mayor ? (
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 5 }}>PREFEITO(A)</div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{selectedMun.mayor.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                        <span className="badge" style={{ background: `${partyColor(selectedMun.mayor.party)}22`, color: partyColor(selectedMun.mayor.party) }}>
+                          {selectedMun.mayor.party}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          {selectedMun.mayor.term_start}–{selectedMun.mayor.term_end}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, color: 'var(--muted)', fontSize: 12 }}>
+                      Prefeito não cadastrado
+                    </div>
+                  )}
+                  <button style={{ ...btnGhost, fontSize: 11, marginTop: 4 }} onClick={() => setModal({ item: selectedMun })}>
+                    ✏️ Editar
+                  </button>
+                </div>
+              ) : (
+                <div style={{ padding: 16, color: 'var(--muted)', fontSize: 12, textAlign: 'center', paddingTop: 40 }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>🗺️</div>
+                  <div>Clique em um município no mapa para ver os detalhes</div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Legend */}
           <div style={{
-            padding: '10px 16px', background: 'var(--bg2)',
-            display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 11, color: 'var(--muted)',
+            padding: '10px 16px', background: 'var(--bg2)', borderTop: '1px solid var(--border)',
+            display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 11, color: 'var(--muted)', alignItems: 'center',
           }}>
-            <span style={{ fontWeight: 600 }}>Legenda:</span>
-            {Object.entries(REGION_COLORS).map(([r, c]) => (
-              <span key={r} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: c, display: 'inline-block' }} />
-                {r}
+            <span style={{ fontWeight: 600, marginRight: 4 }}>População (Censo 2022):</span>
+            {[
+              { label: '< 10 mil', color: '#dbeafe' },
+              { label: '10–50 mil', color: '#93c5fd' },
+              { label: '50–200 mil', color: '#60a5fa' },
+              { label: '200 mil–1M', color: '#3b82f6' },
+              { label: '> 1M', color: '#1e3a8a' },
+              { label: 'Sem dado', color: '#2d333b' },
+            ].map(({ label, color }) => (
+              <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 12, height: 12, background: color, display: 'inline-block', borderRadius: 2 }} />
+                {label}
               </span>
             ))}
-            <span style={{ marginLeft: 'auto' }}>Clique nos círculos para ver detalhes · Tamanho = população</span>
           </div>
         </div>
       )}
