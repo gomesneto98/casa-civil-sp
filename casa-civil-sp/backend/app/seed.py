@@ -8,6 +8,7 @@ import os
 import sys
 import random
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -1310,6 +1311,33 @@ def _seed_metas(db: Session, secretariats: list):
     db.flush()
 
 
+def _do_seed_geo(db: Session):
+    """Seed mayors and municipalities (can be called standalone to reseed geo data)."""
+    print("Seeding mayors and municipalities...")
+    mayors_by_city = {}
+    for city_name, (m_name, m_party, m_start, m_end) in MAYORS_DATA.items():
+        mayor = Mayor(name=m_name, party=m_party, term_start=m_start, term_end=m_end)
+        db.add(mayor)
+        mayors_by_city[city_name] = mayor
+    db.flush()
+
+    municipalities = []
+    for mname, region, pop, lat, lng in MUNICIPALITIES_DATA:
+        mayor = mayors_by_city.get(mname)
+        mun = Municipality(
+            name=mname,
+            region=region,
+            population=pop,
+            lat=lat,
+            lng=lng,
+            mayor_id=mayor.id if mayor else None,
+        )
+        db.add(mun)
+        municipalities.append(mun)
+    db.flush()
+    return mayors_by_city, municipalities
+
+
 def seed_all():
     # Create tables
     Base.metadata.create_all(bind=engine)
@@ -1319,8 +1347,21 @@ def seed_all():
     try:
         # Check idempotency for main data
         if db.query(Deputy).count() > 0:
+            # Auto-migrate: if municipalities < 600, truncate geo data and reseed
+            mun_count = db.query(Municipality).count()
+            if mun_count < 600:
+                print(f"Found only {mun_count} municipalities. Truncating and reseeding geo data...")
+                db.execute(text("DELETE FROM amendments"))
+                db.execute(text("DELETE FROM budget_items WHERE mayor_id IS NOT NULL"))
+                db.execute(text("DELETE FROM municipalities"))
+                db.execute(text("DELETE FROM mayors"))
+                db.commit()
+                # Fall through to reseed municipalities/mayors below
+                _do_seed_geo(db)
+                db.commit()
+                print("Geo data reseeded.")
             # Check if metas need seeding separately
-            if db.query(GoalGroup).count() == 0:
+            elif db.query(GoalGroup).count() == 0:
                 print("Main data already seeded. Seeding metas...")
                 secretariats = db.query(Secretariat).all()
                 _seed_metas(db, secretariats)
@@ -1346,28 +1387,7 @@ def seed_all():
             deputies.append(d)
         db.flush()
 
-        print("Seeding mayors and municipalities...")
-        mayors_by_city = {}
-        for city_name, (m_name, m_party, m_start, m_end) in MAYORS_DATA.items():
-            mayor = Mayor(name=m_name, party=m_party, term_start=m_start, term_end=m_end)
-            db.add(mayor)
-            mayors_by_city[city_name] = mayor
-        db.flush()
-
-        municipalities = []
-        for mname, region, pop, lat, lng in MUNICIPALITIES_DATA:
-            mayor = mayors_by_city.get(mname)
-            mun = Municipality(
-                name=mname,
-                region=region,
-                population=pop,
-                lat=lat,
-                lng=lng,
-                mayor_id=mayor.id if mayor else None,
-            )
-            db.add(mun)
-            municipalities.append(mun)
-        db.flush()
+        mayors_by_city, municipalities = _do_seed_geo(db)
 
         print("Seeding secretariats...")
         secretariats = []
