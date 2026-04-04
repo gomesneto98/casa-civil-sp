@@ -1360,6 +1360,7 @@ def seed_all():
 
         # Check idempotency for main data
         if db.query(Deputy).count() > 0:
+            needs_return = True
             # Auto-migrate: if municipalities < 600, truncate geo data and reseed
             mun_count = db.query(Municipality).count()
             if mun_count < 600:
@@ -1369,10 +1370,42 @@ def seed_all():
                 db.execute(text("DELETE FROM municipalities"))
                 db.execute(text("DELETE FROM mayors"))
                 db.commit()
-                # Fall through to reseed municipalities/mayors below
                 _do_seed_geo(db)
                 db.commit()
                 print("Geo data reseeded.")
+
+            # Auto-migrate: if secretariats < 24, delete and reseed
+            sec_count = db.query(Secretariat).count()
+            if sec_count < 24:
+                print(f"Found only {sec_count} secretariats. Reseeding secretariats...")
+                db.execute(text("DELETE FROM budget_items WHERE secretariat_id IS NOT NULL"))
+                db.execute(text("DELETE FROM metas"))
+                db.execute(text("DELETE FROM goal_groups"))
+                db.execute(text("DELETE FROM secretariats"))
+                db.commit()
+                secretariats = []
+                for name, acronym, emoji, sec_name, party, executives in SECRETARIATS_DATA:
+                    s = Secretariat(name=name, acronym=acronym, emoji=emoji,
+                                    secretary_name=sec_name, party=party, executives=executives)
+                    db.add(s)
+                    secretariats.append(s)
+                db.flush()
+                # Reseed budget items for secretariats
+                import random as _r
+                _r.seed(42)
+                categories = ["dotacao", "empenhado", "liquidado", "pago"]
+                ratios = {"dotacao": 1.0, "empenhado": 0.88, "liquidado": 0.82, "pago": 0.75}
+                for sec in secretariats:
+                    base = BUDGET_BASES.get(sec.acronym, 5.0) * 1_000_000_000
+                    for year in range(2022, 2026):
+                        for cat in categories:
+                            value = base * (1 + (year - 2022) * 0.05) * ratios[cat] * (1 + _r.uniform(-0.03, 0.03))
+                            db.add(BudgetItem(secretariat_id=sec.id, year=year, category=cat,
+                                              value=round(value, 2), description=f"Execução {year} - {cat}"))
+                _seed_metas(db, secretariats)
+                db.commit()
+                print("Secretariats reseeded.")
+
             # Check if metas need seeding separately
             elif db.query(GoalGroup).count() == 0:
                 print("Main data already seeded. Seeding metas...")
